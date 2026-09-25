@@ -1,0 +1,1137 @@
+(export
+	(version "E")
+	(design
+		(source "/run/media/makson/Новый том/Сайты/KiCad/kicad/t-sallen-key/sallen_key_lpf.kicad_sch")
+		(date "2026-09-25T13:43:35")
+		(tool "Eeschema 10.0.6")
+		(sheet
+			(number "1")
+			(name "/")
+			(tstamps "/")
+			(title_block
+				(title "Активный ФНЧ 2-го порядка (Саллен–Ки) на LM358")
+				(company "KiCad Мастер Pro")
+				(rev "1")
+				(date "2026-09-25")
+				(source "sallen_key_lpf.kicad_sch")
+				(comment
+					(number "1")
+					(value "Сгенерировано автоматически; стиль «соединения метками»")
+				)
+				(comment
+					(number "2")
+					(value "")
+				)
+				(comment
+					(number "3")
+					(value "")
+				)
+				(comment
+					(number "4")
+					(value "")
+				)
+				(comment
+					(number "5")
+					(value "")
+				)
+				(comment
+					(number "6")
+					(value "")
+				)
+				(comment
+					(number "7")
+					(value "")
+				)
+				(comment
+					(number "8")
+					(value "")
+				)
+				(comment
+					(number "9")
+					(value "")
+				)
+			)
+		)
+	)
+	(components
+		(comp
+			(ref "C1")
+			(value "22n")
+			(footprint "Capacitor_SMD:C_0805_2012Metric")
+			(description "Конденсатор обратной связи")
+			(fields
+				(field
+					(name "Footprint") "Capacitor_SMD:C_0805_2012Metric")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Конденсатор обратной связи")
+			)
+			(libsource
+				(lib "KiCadMaster")
+				(part "C")
+				(description "Конденсатор")
+			)
+			(property
+				(name "Sheetname")
+				(value "sallen_key_lpf")
+			)
+			(property
+				(name "Sheetfile")
+				(value "sallen_key_lpf.kicad_sch")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "2fa8da0d-acfb-49c8-baea-110040fea921")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "C2")
+			(value "10n")
+			(footprint "Capacitor_SMD:C_0805_2012Metric")
+			(description "Конденсатор на опору")
+			(fields
+				(field
+					(name "Footprint") "Capacitor_SMD:C_0805_2012Metric")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Конденсатор на опору")
+			)
+			(libsource
+				(lib "KiCadMaster")
+				(part "C")
+				(description "Конденсатор")
+			)
+			(property
+				(name "Sheetname")
+				(value "sallen_key_lpf")
+			)
+			(property
+				(name "Sheetfile")
+				(value "sallen_key_lpf.kicad_sch")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "c451a07f-c22a-4907-af56-35cf6e76af10")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "C3")
+			(value "10u")
+			(footprint "Capacitor_THT:CP_Radial_D5.0mm_P2.00mm")
+			(description "Фильтр делителя")
+			(fields
+				(field
+					(name "Footprint") "Capacitor_THT:CP_Radial_D5.0mm_P2.00mm")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Фильтр делителя")
+			)
+			(libsource
+				(lib "KiCadMaster")
+				(part "C_Polarized")
+				(description "Полярный конденсатор")
+			)
+			(property
+				(name "Sheetname")
+				(value "sallen_key_lpf")
+			)
+			(property
+				(name "Sheetfile")
+				(value "sallen_key_lpf.kicad_sch")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "7e88107a-a96b-42e4-a639-ad82aed06fb6")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "C4")
+			(value "100n")
+			(footprint "Capacitor_SMD:C_0805_2012Metric")
+			(description "Развязка питания ОУ")
+			(fields
+				(field
+					(name "Footprint") "Capacitor_SMD:C_0805_2012Metric")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Развязка питания ОУ")
+			)
+			(libsource
+				(lib "KiCadMaster")
+				(part "C")
+				(description "Конденсатор")
+			)
+			(property
+				(name "Sheetname")
+				(value "sallen_key_lpf")
+			)
+			(property
+				(name "Sheetfile")
+				(value "sallen_key_lpf.kicad_sch")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "3a64fa5f-2a78-458f-b953-fa1bbeb74cd6")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "C5")
+			(value "1u")
+			(footprint "Capacitor_SMD:C_0805_2012Metric")
+			(description "Разделительный")
+			(fields
+				(field
+					(name "Footprint") "Capacitor_SMD:C_0805_2012Metric")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Разделительный")
+			)
+			(libsource
+				(lib "KiCadMaster")
+				(part "C")
+				(description "Конденсатор")
+			)
+			(property
+				(name "Sheetname")
+				(value "sallen_key_lpf")
+			)
+			(property
+				(name "Sheetfile")
+				(value "sallen_key_lpf.kicad_sch")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "dcc81f1c-17c5-4682-bbc2-0b631bc299ae")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "J1")
+			(value "PWR/IN")
+			(footprint "Connector_PinHeader_2.54mm:PinHeader_1x03_P2.54mm_Vertical")
+			(description "1 = +12V, 2 = вход, 3 = GND")
+			(fields
+				(field
+					(name "Footprint") "Connector_PinHeader_2.54mm:PinHeader_1x03_P2.54mm_Vertical")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "1 = +12V, 2 = вход, 3 = GND")
+			)
+			(libsource
+				(lib "KiCadMaster")
+				(part "Conn_01x03")
+				(description "Разъём")
+			)
+			(property
+				(name "Sheetname")
+				(value "sallen_key_lpf")
+			)
+			(property
+				(name "Sheetfile")
+				(value "sallen_key_lpf.kicad_sch")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "ebb535bc-9a94-4437-9f39-8c25705e3061")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+						(pin
+							(num "3")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "J2")
+			(value "OUT")
+			(footprint "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical")
+			(description "Выход относительно VREF")
+			(fields
+				(field
+					(name "Footprint") "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Выход относительно VREF")
+			)
+			(libsource
+				(lib "KiCadMaster")
+				(part "Conn_01x02")
+				(description "Разъём")
+			)
+			(property
+				(name "Sheetname")
+				(value "sallen_key_lpf")
+			)
+			(property
+				(name "Sheetfile")
+				(value "sallen_key_lpf.kicad_sch")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "e2b52f9d-4edc-4d76-b73a-343ad1bb2572")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "R1")
+			(value "10k")
+			(footprint "Resistor_SMD:R_0805_2012Metric")
+			(description "R первого звена")
+			(fields
+				(field
+					(name "Footprint") "Resistor_SMD:R_0805_2012Metric")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "R первого звена")
+			)
+			(libsource
+				(lib "KiCadMaster")
+				(part "R")
+				(description "Резистор")
+			)
+			(property
+				(name "Sheetname")
+				(value "sallen_key_lpf")
+			)
+			(property
+				(name "Sheetfile")
+				(value "sallen_key_lpf.kicad_sch")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "c15b2697-a0ed-4103-ae4b-4c60bee22295")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "R2")
+			(value "10k")
+			(footprint "Resistor_SMD:R_0805_2012Metric")
+			(description "R второго звена")
+			(fields
+				(field
+					(name "Footprint") "Resistor_SMD:R_0805_2012Metric")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "R второго звена")
+			)
+			(libsource
+				(lib "KiCadMaster")
+				(part "R")
+				(description "Резистор")
+			)
+			(property
+				(name "Sheetname")
+				(value "sallen_key_lpf")
+			)
+			(property
+				(name "Sheetfile")
+				(value "sallen_key_lpf.kicad_sch")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "fb029fdc-ab69-49bf-9b82-f45f895d5fd6")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "R3")
+			(value "10k")
+			(footprint "Resistor_SMD:R_0805_2012Metric")
+			(description "Делитель VCC/2")
+			(fields
+				(field
+					(name "Footprint") "Resistor_SMD:R_0805_2012Metric")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Делитель VCC/2")
+			)
+			(libsource
+				(lib "KiCadMaster")
+				(part "R")
+				(description "Резистор")
+			)
+			(property
+				(name "Sheetname")
+				(value "sallen_key_lpf")
+			)
+			(property
+				(name "Sheetfile")
+				(value "sallen_key_lpf.kicad_sch")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "1e31969d-baf4-44e7-95de-8b3bf7e8e8dc")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "R4")
+			(value "10k")
+			(footprint "Resistor_SMD:R_0805_2012Metric")
+			(description "Делитель VCC/2")
+			(fields
+				(field
+					(name "Footprint") "Resistor_SMD:R_0805_2012Metric")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Делитель VCC/2")
+			)
+			(libsource
+				(lib "KiCadMaster")
+				(part "R")
+				(description "Резистор")
+			)
+			(property
+				(name "Sheetname")
+				(value "sallen_key_lpf")
+			)
+			(property
+				(name "Sheetfile")
+				(value "sallen_key_lpf.kicad_sch")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "1b8b5ed6-d36a-4675-bba2-76f4e7da3906")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "R5")
+			(value "100k")
+			(footprint "Resistor_SMD:R_0805_2012Metric")
+			(description "Смещение входа на VREF")
+			(fields
+				(field
+					(name "Footprint") "Resistor_SMD:R_0805_2012Metric")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Смещение входа на VREF")
+			)
+			(libsource
+				(lib "KiCadMaster")
+				(part "R")
+				(description "Резистор")
+			)
+			(property
+				(name "Sheetname")
+				(value "sallen_key_lpf")
+			)
+			(property
+				(name "Sheetfile")
+				(value "sallen_key_lpf.kicad_sch")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "1a41155f-6443-4c03-b1bd-771e77561096")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "U1")
+			(value "LM358")
+			(footprint "Package_DIP:DIP-8_W7.62mm")
+			(description "A — фильтр, B — буфер VREF")
+			(fields
+				(field
+					(name "Footprint") "Package_DIP:DIP-8_W7.62mm")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "A — фильтр, B — буфер VREF")
+			)
+			(libsource
+				(lib "KiCadMaster")
+				(part "LM358")
+				(description "Сдвоенный ОУ LM358 (обе части в одном символе)")
+			)
+			(property
+				(name "Sheetname")
+				(value "sallen_key_lpf")
+			)
+			(property
+				(name "Sheetfile")
+				(value "sallen_key_lpf.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "opamp dual")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "98db914b-d3a4-4bc2-8ef8-c91d30dd69d7")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "3")
+						)
+						(pin
+							(num "2")
+						)
+						(pin
+							(num "5")
+						)
+						(pin
+							(num "6")
+						)
+						(pin
+							(num "8")
+						)
+						(pin
+							(num "4")
+						)
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "7")
+						)
+					)
+				)
+			)
+		)
+	)
+	(groups)
+	(variants)
+	(libparts
+		(libpart
+			(lib "KiCadMaster")
+			(part "C")
+			(description "Конденсатор")
+			(fields
+				(field
+					(name "Reference") "C")
+				(field
+					(name "Value") "C")
+				(field
+					(name "Footprint")
+				)
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Конденсатор")
+			)
+			(pins
+				(pin
+					(num "1")
+					(name "")
+					(type "passive")
+				)
+				(pin
+					(num "2")
+					(name "")
+					(type "passive")
+				)
+			)
+		)
+		(libpart
+			(lib "KiCadMaster")
+			(part "C_Polarized")
+			(description "Полярный конденсатор")
+			(fields
+				(field
+					(name "Reference") "C")
+				(field
+					(name "Value") "C_Polarized")
+				(field
+					(name "Footprint")
+				)
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Полярный конденсатор")
+			)
+			(pins
+				(pin
+					(num "1")
+					(name "")
+					(type "passive")
+				)
+				(pin
+					(num "2")
+					(name "")
+					(type "passive")
+				)
+			)
+		)
+		(libpart
+			(lib "KiCadMaster")
+			(part "Conn_01x02")
+			(description "Разъём")
+			(fields
+				(field
+					(name "Reference") "J")
+				(field
+					(name "Value") "Conn_01x02")
+				(field
+					(name "Footprint")
+				)
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Разъём")
+			)
+			(pins
+				(pin
+					(num "1")
+					(name "Pin_1")
+					(type "passive")
+				)
+				(pin
+					(num "2")
+					(name "Pin_2")
+					(type "passive")
+				)
+			)
+		)
+		(libpart
+			(lib "KiCadMaster")
+			(part "Conn_01x03")
+			(description "Разъём")
+			(fields
+				(field
+					(name "Reference") "J")
+				(field
+					(name "Value") "Conn_01x03")
+				(field
+					(name "Footprint")
+				)
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Разъём")
+			)
+			(pins
+				(pin
+					(num "1")
+					(name "Pin_1")
+					(type "passive")
+				)
+				(pin
+					(num "2")
+					(name "Pin_2")
+					(type "passive")
+				)
+				(pin
+					(num "3")
+					(name "Pin_3")
+					(type "passive")
+				)
+			)
+		)
+		(libpart
+			(lib "KiCadMaster")
+			(part "LM358")
+			(description "Сдвоенный ОУ LM358 (обе части в одном символе)")
+			(fields
+				(field
+					(name "Reference") "U")
+				(field
+					(name "Value") "LM358")
+				(field
+					(name "Footprint")
+				)
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Сдвоенный ОУ LM358 (обе части в одном символе)")
+			)
+			(pins
+				(pin
+					(num "1")
+					(name "OUTA")
+					(type "output")
+				)
+				(pin
+					(num "2")
+					(name "-INA")
+					(type "input")
+				)
+				(pin
+					(num "3")
+					(name "+INA")
+					(type "input")
+				)
+				(pin
+					(num "4")
+					(name "V-")
+					(type "power_in")
+				)
+				(pin
+					(num "5")
+					(name "+INB")
+					(type "input")
+				)
+				(pin
+					(num "6")
+					(name "-INB")
+					(type "input")
+				)
+				(pin
+					(num "7")
+					(name "OUTB")
+					(type "output")
+				)
+				(pin
+					(num "8")
+					(name "V+")
+					(type "power_in")
+				)
+			)
+		)
+		(libpart
+			(lib "KiCadMaster")
+			(part "R")
+			(description "Резистор")
+			(fields
+				(field
+					(name "Reference") "R")
+				(field
+					(name "Value") "R")
+				(field
+					(name "Footprint")
+				)
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Резистор")
+			)
+			(pins
+				(pin
+					(num "1")
+					(name "")
+					(type "passive")
+				)
+				(pin
+					(num "2")
+					(name "")
+					(type "passive")
+				)
+			)
+		)
+	)
+	(libraries
+		(library
+			(logical "KiCadMaster")
+			(uri "${KIPRJMOD}/KiCadMaster.kicad_sym")
+		)
+	)
+	(nets
+		(net
+			(code "1")
+			(name "+12V")
+			(class "Default")
+			(node
+				(ref "C4")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "J1")
+				(pin "1")
+				(pinfunction "Pin_1_1")
+				(pintype "passive")
+			)
+			(node
+				(ref "R3")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "U1")
+				(pin "8")
+				(pinfunction "V+_8")
+				(pintype "power_in")
+			)
+		)
+		(net
+			(code "2")
+			(name "/IN")
+			(class "Default")
+			(node
+				(ref "C5")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "J1")
+				(pin "2")
+				(pinfunction "Pin_2_2")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "3")
+			(name "/IN_AC")
+			(class "Default")
+			(node
+				(ref "C5")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "R1")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "R5")
+				(pin "1")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "4")
+			(name "/N1")
+			(class "Default")
+			(node
+				(ref "C1")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "R1")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "R2")
+				(pin "1")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "5")
+			(name "/N2")
+			(class "Default")
+			(node
+				(ref "C2")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "R2")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "U1")
+				(pin "3")
+				(pinfunction "+INA_3")
+				(pintype "input")
+			)
+		)
+		(net
+			(code "6")
+			(name "/OUT")
+			(class "Default")
+			(node
+				(ref "C1")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "J2")
+				(pin "1")
+				(pinfunction "Pin_1_1")
+				(pintype "passive")
+			)
+			(node
+				(ref "U1")
+				(pin "1")
+				(pinfunction "OUTA_1")
+				(pintype "output")
+			)
+			(node
+				(ref "U1")
+				(pin "2")
+				(pinfunction "-INA_2")
+				(pintype "input")
+			)
+		)
+		(net
+			(code "7")
+			(name "/VDIV")
+			(class "Default")
+			(node
+				(ref "C3")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "R3")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "R4")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "U1")
+				(pin "5")
+				(pinfunction "+INB_5")
+				(pintype "input")
+			)
+		)
+		(net
+			(code "8")
+			(name "/VREF")
+			(class "Default")
+			(node
+				(ref "C2")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "J2")
+				(pin "2")
+				(pinfunction "Pin_2_2")
+				(pintype "passive")
+			)
+			(node
+				(ref "R5")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "U1")
+				(pin "6")
+				(pinfunction "-INB_6")
+				(pintype "input")
+			)
+			(node
+				(ref "U1")
+				(pin "7")
+				(pinfunction "OUTB_7")
+				(pintype "output")
+			)
+		)
+		(net
+			(code "9")
+			(name "GND")
+			(class "Default")
+			(node
+				(ref "C3")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "C4")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "J1")
+				(pin "3")
+				(pinfunction "Pin_3_3")
+				(pintype "passive")
+			)
+			(node
+				(ref "R4")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "U1")
+				(pin "4")
+				(pinfunction "V-_4")
+				(pintype "power_in")
+			)
+		)
+	)
+)

@@ -1,0 +1,5 @@
+"Обозначения","Номинал","Посадочное место","Кол-во","Описание"
+"J1","LV 3V3","Connector_PinHeader_2.54mm:PinHeader_1x04_P2.54mm_Vertical","1","Сторона 3,3 В"
+"J2","HV 5V","Connector_PinHeader_2.54mm:PinHeader_1x04_P2.54mm_Vertical","1","Сторона 5 В"
+"Q1,Q2","BSS138","Package_TO_SOT_SMD:SOT-23","2","Канал SCL,Канал SDA"
+"R1,R2,R3,R4","10k","Resistor_SMD:R_0805_2012Metric","4","Подтяжка HV,Подтяжка LV"

@@ -1,0 +1,8 @@
+"Обозначения","Номинал","Посадочное место","Кол-во","Описание"
+"C1","470u/50V","Capacitor_THT:CP_Radial_D10.0mm_P5.00mm","1","Входной low-ESR"
+"C2","220u/16V","Capacitor_THT:CP_Radial_D8.0mm_P3.50mm","1","Выходной low-ESR"
+"D1","1N5822","Diode_THT:D_DO-201AD_P15.24mm_Horizontal","1","Диод Шоттки 3 А 40 В"
+"J1","IN 7-40V","TerminalBlock_Phoenix:TerminalBlock_Phoenix_MKDS-1,5-2_1x02_P5.08mm_Horizontal","1","Вход"
+"J2","OUT 5V","TerminalBlock_Phoenix:TerminalBlock_Phoenix_MKDS-1,5-2_1x02_P5.08mm_Horizontal","1","Выход"
+"L1","33u 3A","Inductor_THT:L_Radial_D8.7mm_P5.00mm_Fastron_07HCP","1","Дроссель с током насыщения ≥ 3,5 А"
+"U1","LM2596S-5.0","Package_TO_SOT_SMD:TO-263-5_TabPin3","1","ON/OFF на GND = включён"

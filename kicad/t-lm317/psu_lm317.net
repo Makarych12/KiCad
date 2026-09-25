@@ -1,0 +1,914 @@
+(export
+	(version "E")
+	(design
+		(source "/run/media/makson/Новый том/Сайты/KiCad/kicad/t-lm317/psu_lm317.kicad_sch")
+		(date "2026-09-25T13:43:20")
+		(tool "Eeschema 10.0.6")
+		(sheet
+			(number "1")
+			(name "/")
+			(tstamps "/")
+			(title_block
+				(title "Регулируемый стабилизатор LM317")
+				(company "KiCad Мастер Pro")
+				(rev "1")
+				(date "2026-09-25")
+				(source "psu_lm317.kicad_sch")
+				(comment
+					(number "1")
+					(value "Сгенерировано автоматически; стиль «соединения метками»")
+				)
+				(comment
+					(number "2")
+					(value "")
+				)
+				(comment
+					(number "3")
+					(value "")
+				)
+				(comment
+					(number "4")
+					(value "")
+				)
+				(comment
+					(number "5")
+					(value "")
+				)
+				(comment
+					(number "6")
+					(value "")
+				)
+				(comment
+					(number "7")
+					(value "")
+				)
+				(comment
+					(number "8")
+					(value "")
+				)
+				(comment
+					(number "9")
+					(value "")
+				)
+			)
+		)
+	)
+	(components
+		(comp
+			(ref "C1")
+			(value "100n")
+			(footprint "Capacitor_SMD:C_0805_2012Metric")
+			(description "Входной (по даташиту 0,1 мкФ)")
+			(fields
+				(field
+					(name "Footprint") "Capacitor_SMD:C_0805_2012Metric")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Входной (по даташиту 0,1 мкФ)")
+			)
+			(libsource
+				(lib "KiCadMaster")
+				(part "C")
+				(description "Конденсатор")
+			)
+			(property
+				(name "Sheetname")
+				(value "psu_lm317")
+			)
+			(property
+				(name "Sheetfile")
+				(value "psu_lm317.kicad_sch")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "b6947cf5-dd53-4e78-a74d-257b942fd101")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "C2")
+			(value "10u")
+			(footprint "Capacitor_THT:CP_Radial_D5.0mm_P2.00mm")
+			(description "Подавление пульсаций на ADJ")
+			(fields
+				(field
+					(name "Footprint") "Capacitor_THT:CP_Radial_D5.0mm_P2.00mm")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Подавление пульсаций на ADJ")
+			)
+			(libsource
+				(lib "KiCadMaster")
+				(part "C_Polarized")
+				(description "Полярный конденсатор")
+			)
+			(property
+				(name "Sheetname")
+				(value "psu_lm317")
+			)
+			(property
+				(name "Sheetfile")
+				(value "psu_lm317.kicad_sch")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "d54822d5-f61a-4998-9b7a-fce3a9d039a8")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "C3")
+			(value "10u")
+			(footprint "Capacitor_THT:CP_Radial_D5.0mm_P2.00mm")
+			(description "Выходной (по даташиту ≥1 мкФ)")
+			(fields
+				(field
+					(name "Footprint") "Capacitor_THT:CP_Radial_D5.0mm_P2.00mm")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Выходной (по даташиту ≥1 мкФ)")
+			)
+			(libsource
+				(lib "KiCadMaster")
+				(part "C_Polarized")
+				(description "Полярный конденсатор")
+			)
+			(property
+				(name "Sheetname")
+				(value "psu_lm317")
+			)
+			(property
+				(name "Sheetfile")
+				(value "psu_lm317.kicad_sch")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "13a8c19f-705e-4b56-a5c9-d2c15fb7babc")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "D1")
+			(value "1N4007")
+			(footprint "Diode_THT:D_DO-41_SOD81_P10.16mm_Horizontal")
+			(description "Защита при КЗ входа (разряд выходной ёмкости)")
+			(fields
+				(field
+					(name "Footprint") "Diode_THT:D_DO-41_SOD81_P10.16mm_Horizontal")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Защита при КЗ входа (разряд выходной ёмкости)")
+			)
+			(libsource
+				(lib "KiCadMaster")
+				(part "D")
+				(description "Диод")
+			)
+			(property
+				(name "Sheetname")
+				(value "psu_lm317")
+			)
+			(property
+				(name "Sheetfile")
+				(value "psu_lm317.kicad_sch")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "6b7b570f-9f53-4d60-90c5-019412577de3")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "J1")
+			(value "IN")
+			(footprint "TerminalBlock_Phoenix:TerminalBlock_Phoenix_MKDS-1,5-2_1x02_P5.08mm_Horizontal")
+			(description "Вход до 30 В")
+			(fields
+				(field
+					(name "Footprint") "TerminalBlock_Phoenix:TerminalBlock_Phoenix_MKDS-1,5-2_1x02_P5.08mm_Horizontal")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Вход до 30 В")
+			)
+			(libsource
+				(lib "KiCadMaster")
+				(part "Conn_01x02")
+				(description "Разъём")
+			)
+			(property
+				(name "Sheetname")
+				(value "psu_lm317")
+			)
+			(property
+				(name "Sheetfile")
+				(value "psu_lm317.kicad_sch")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "993e8748-220d-46ff-985b-11b44fa7c247")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "J2")
+			(value "OUT")
+			(footprint "TerminalBlock_Phoenix:TerminalBlock_Phoenix_MKDS-1,5-2_1x02_P5.08mm_Horizontal")
+			(description "Выход")
+			(fields
+				(field
+					(name "Footprint") "TerminalBlock_Phoenix:TerminalBlock_Phoenix_MKDS-1,5-2_1x02_P5.08mm_Horizontal")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Выход")
+			)
+			(libsource
+				(lib "KiCadMaster")
+				(part "Conn_01x02")
+				(description "Разъём")
+			)
+			(property
+				(name "Sheetname")
+				(value "psu_lm317")
+			)
+			(property
+				(name "Sheetfile")
+				(value "psu_lm317.kicad_sch")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "5bd3501f-9d8c-461e-a93b-17ecd660434d")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "R1")
+			(value "240")
+			(footprint "Resistor_SMD:R_0805_2012Metric")
+			(description "Задаёт ток делителя ≈ 5 мА")
+			(fields
+				(field
+					(name "Footprint") "Resistor_SMD:R_0805_2012Metric")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Задаёт ток делителя ≈ 5 мА")
+			)
+			(libsource
+				(lib "KiCadMaster")
+				(part "R")
+				(description "Резистор")
+			)
+			(property
+				(name "Sheetname")
+				(value "psu_lm317")
+			)
+			(property
+				(name "Sheetfile")
+				(value "psu_lm317.kicad_sch")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "3aab6355-f5f6-40e3-a3dc-f99b8a6993ea")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "R2")
+			(value "220")
+			(footprint "Resistor_SMD:R_0805_2012Metric")
+			(description "Минимальное сопротивление нижнего плеча")
+			(fields
+				(field
+					(name "Footprint") "Resistor_SMD:R_0805_2012Metric")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Минимальное сопротивление нижнего плеча")
+			)
+			(libsource
+				(lib "KiCadMaster")
+				(part "R")
+				(description "Резистор")
+			)
+			(property
+				(name "Sheetname")
+				(value "psu_lm317")
+			)
+			(property
+				(name "Sheetfile")
+				(value "psu_lm317.kicad_sch")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "21896701-cafb-4de5-97a3-3520d2d52465")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "RV1")
+			(value "2k5")
+			(footprint "Potentiometer_THT:Potentiometer_Alps_RK09K_Single_Vertical")
+			(description "Регулировка напряжения")
+			(fields
+				(field
+					(name "Footprint") "Potentiometer_THT:Potentiometer_Alps_RK09K_Single_Vertical")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Регулировка напряжения")
+			)
+			(libsource
+				(lib "KiCadMaster")
+				(part "R_Potentiometer")
+				(description "Потенциометр")
+			)
+			(property
+				(name "Sheetname")
+				(value "psu_lm317")
+			)
+			(property
+				(name "Sheetfile")
+				(value "psu_lm317.kicad_sch")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "c104f6dd-3280-43aa-8c88-cf8b624101b0")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "3")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "U1")
+			(value "LM317")
+			(footprint "Package_TO_SOT_THT:TO-220-3_Vertical")
+			(description "Регулируемый стабилизатор")
+			(fields
+				(field
+					(name "Footprint") "Package_TO_SOT_THT:TO-220-3_Vertical")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Регулируемый стабилизатор")
+			)
+			(libsource
+				(lib "KiCadMaster")
+				(part "LM317")
+				(description "Регулируемый стабилизатор LM317, TO-220")
+			)
+			(property
+				(name "Sheetname")
+				(value "psu_lm317")
+			)
+			(property
+				(name "Sheetfile")
+				(value "psu_lm317.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "regulator adjustable")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "c70c0fb1-c7c7-481f-ad70-3a27569c2fd6")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "3")
+						)
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+	)
+	(groups)
+	(variants)
+	(libparts
+		(libpart
+			(lib "KiCadMaster")
+			(part "C")
+			(description "Конденсатор")
+			(fields
+				(field
+					(name "Reference") "C")
+				(field
+					(name "Value") "C")
+				(field
+					(name "Footprint")
+				)
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Конденсатор")
+			)
+			(pins
+				(pin
+					(num "1")
+					(name "")
+					(type "passive")
+				)
+				(pin
+					(num "2")
+					(name "")
+					(type "passive")
+				)
+			)
+		)
+		(libpart
+			(lib "KiCadMaster")
+			(part "C_Polarized")
+			(description "Полярный конденсатор")
+			(fields
+				(field
+					(name "Reference") "C")
+				(field
+					(name "Value") "C_Polarized")
+				(field
+					(name "Footprint")
+				)
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Полярный конденсатор")
+			)
+			(pins
+				(pin
+					(num "1")
+					(name "")
+					(type "passive")
+				)
+				(pin
+					(num "2")
+					(name "")
+					(type "passive")
+				)
+			)
+		)
+		(libpart
+			(lib "KiCadMaster")
+			(part "Conn_01x02")
+			(description "Разъём")
+			(fields
+				(field
+					(name "Reference") "J")
+				(field
+					(name "Value") "Conn_01x02")
+				(field
+					(name "Footprint")
+				)
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Разъём")
+			)
+			(pins
+				(pin
+					(num "1")
+					(name "Pin_1")
+					(type "passive")
+				)
+				(pin
+					(num "2")
+					(name "Pin_2")
+					(type "passive")
+				)
+			)
+		)
+		(libpart
+			(lib "KiCadMaster")
+			(part "D")
+			(description "Диод")
+			(fields
+				(field
+					(name "Reference") "D")
+				(field
+					(name "Value") "D")
+				(field
+					(name "Footprint")
+				)
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Диод")
+			)
+			(pins
+				(pin
+					(num "1")
+					(name "K")
+					(type "passive")
+				)
+				(pin
+					(num "2")
+					(name "A")
+					(type "passive")
+				)
+			)
+		)
+		(libpart
+			(lib "KiCadMaster")
+			(part "LM317")
+			(description "Регулируемый стабилизатор LM317, TO-220")
+			(fields
+				(field
+					(name "Reference") "U")
+				(field
+					(name "Value") "LM317")
+				(field
+					(name "Footprint")
+				)
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Регулируемый стабилизатор LM317, TO-220")
+			)
+			(pins
+				(pin
+					(num "1")
+					(name "ADJ")
+					(type "input")
+				)
+				(pin
+					(num "2")
+					(name "OUT")
+					(type "power_out")
+				)
+				(pin
+					(num "3")
+					(name "IN")
+					(type "power_in")
+				)
+			)
+		)
+		(libpart
+			(lib "KiCadMaster")
+			(part "R")
+			(description "Резистор")
+			(fields
+				(field
+					(name "Reference") "R")
+				(field
+					(name "Value") "R")
+				(field
+					(name "Footprint")
+				)
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Резистор")
+			)
+			(pins
+				(pin
+					(num "1")
+					(name "")
+					(type "passive")
+				)
+				(pin
+					(num "2")
+					(name "")
+					(type "passive")
+				)
+			)
+		)
+		(libpart
+			(lib "KiCadMaster")
+			(part "R_Potentiometer")
+			(description "Потенциометр")
+			(fields
+				(field
+					(name "Reference") "RV")
+				(field
+					(name "Value") "R_Potentiometer")
+				(field
+					(name "Footprint")
+				)
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Потенциометр")
+			)
+			(pins
+				(pin
+					(num "1")
+					(name "1")
+					(type "passive")
+				)
+				(pin
+					(num "2")
+					(name "2")
+					(type "passive")
+				)
+				(pin
+					(num "3")
+					(name "3")
+					(type "passive")
+				)
+			)
+		)
+	)
+	(libraries
+		(library
+			(logical "KiCadMaster")
+			(uri "${KIPRJMOD}/KiCadMaster.kicad_sym")
+		)
+	)
+	(nets
+		(net
+			(code "1")
+			(name "/ADJ")
+			(class "Default")
+			(node
+				(ref "C2")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "R1")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "R2")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "U1")
+				(pin "1")
+				(pinfunction "ADJ_1")
+				(pintype "input")
+			)
+		)
+		(net
+			(code "2")
+			(name "/ADJ_POT")
+			(class "Default")
+			(node
+				(ref "R2")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "RV1")
+				(pin "1")
+				(pinfunction "1_1")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "3")
+			(name "/VOUT")
+			(class "Default")
+			(node
+				(ref "C3")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "D1")
+				(pin "2")
+				(pinfunction "A_2")
+				(pintype "passive")
+			)
+			(node
+				(ref "J2")
+				(pin "1")
+				(pinfunction "Pin_1_1")
+				(pintype "passive")
+			)
+			(node
+				(ref "R1")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "U1")
+				(pin "2")
+				(pinfunction "OUT_2")
+				(pintype "power_out")
+			)
+		)
+		(net
+			(code "4")
+			(name "GND")
+			(class "Default")
+			(node
+				(ref "C1")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "C2")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "C3")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "J1")
+				(pin "2")
+				(pinfunction "Pin_2_2")
+				(pintype "passive")
+			)
+			(node
+				(ref "J2")
+				(pin "2")
+				(pinfunction "Pin_2_2")
+				(pintype "passive")
+			)
+			(node
+				(ref "RV1")
+				(pin "2")
+				(pinfunction "2_2")
+				(pintype "passive")
+			)
+			(node
+				(ref "RV1")
+				(pin "3")
+				(pinfunction "3_3")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "5")
+			(name "VIN")
+			(class "Default")
+			(node
+				(ref "C1")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "D1")
+				(pin "1")
+				(pinfunction "K_1")
+				(pintype "passive")
+			)
+			(node
+				(ref "J1")
+				(pin "1")
+				(pinfunction "Pin_1_1")
+				(pintype "passive")
+			)
+			(node
+				(ref "U1")
+				(pin "3")
+				(pinfunction "IN_3")
+				(pintype "power_in")
+			)
+		)
+	)
+)

@@ -1,0 +1,7 @@
+"Обозначения","Номинал","Посадочное место","Кол-во","Описание"
+"D1","LED green","LED_SMD:LED_0805_2012Metric","1","Питание есть"
+"D2","LED red","LED_SMD:LED_0805_2012Metric","1","Горит при нажатии"
+"J1","Conn_01x02","Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical","1","Питание 5 В"
+"R1","1k","Resistor_SMD:R_0805_2012Metric","1","Индикатор питания"
+"R2","330","Resistor_SMD:R_0805_2012Metric","1","Ток красного светодиода"
+"SW1","SW_Push","Button_Switch_THT:SW_PUSH_6mm","1","Кнопка"

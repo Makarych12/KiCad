@@ -1,0 +1,8 @@
+"Обозначения","Номинал","Посадочное место","Кол-во","Описание"
+"C1,C2","100n","Capacitor_SMD:C_0805_2012Metric","2","Развязка,Фильтр входа"
+"J1","SENSOR","Connector_PinHeader_2.54mm:PinHeader_1x03_P2.54mm_Vertical","1","1 = +5V, 2 = вход, 3 = GND"
+"J2","OUT","Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical","1","Выход на АЦП"
+"R1","10k","Resistor_SMD:R_0805_2012Metric","1","R1"
+"R2","100k","Resistor_SMD:R_0805_2012Metric","1","R2 обратной связи"
+"R3","1k","Resistor_SMD:R_0805_2012Metric","1","Фильтр/защита входа"
+"U1","LM358","Package_SO:SOIC-8_3.9x4.9mm_P1.27mm","1","Однополярное питание"

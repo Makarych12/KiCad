@@ -1,0 +1,5 @@
+"Обозначения","Номинал","Посадочное место","Кол-во","Описание"
+"C1","100n","Capacitor_SMD:C_0805_2012Metric","1","Разделительный конденсатор"
+"J1","IN","Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical","1","Вход"
+"J2","OUT","Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical","1","Выход"
+"R1","10k","Resistor_SMD:R_0805_2012Metric","1","Резистор на землю"

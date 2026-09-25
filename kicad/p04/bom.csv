@@ -1,0 +1,7 @@
+"Обозначения","Номинал","Посадочное место","Кол-во","Описание"
+"C1","100n","Capacitor_SMD:C_0805_2012Metric","1","Развязка"
+"D1","LED","LED_SMD:LED_0805_2012Metric","1","Индикатор питания"
+"J1","Conn_01x03","Connector_PinHeader_2.54mm:PinHeader_1x03_P2.54mm_Vertical","1","VCC, DATA, GND"
+"R1","4k7","Resistor_SMD:R_0805_2012Metric","1","Подтяжка 1-Wire"
+"R2","1k","Resistor_SMD:R_0805_2012Metric","1","Индикатор"
+"U1","DS18B20","Package_TO_SOT_THT:TO-92_Inline","1","Датчик"

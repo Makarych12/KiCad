@@ -1,0 +1,4 @@
+(sym_lib_table
+  (version 7)
+  (lib (name "KiCadMaster")(type "KiCad")(uri "${KIPRJMOD}/KiCadMaster.kicad_sym")(options "")(descr "Символы курса KiCad Мастер Pro"))
+)

@@ -1,0 +1,8 @@
+"Обозначения","Номинал","Посадочное место","Кол-во","Описание"
+"C1","100u/25V","Capacitor_THT:CP_Radial_D6.3mm_P2.50mm","1","Фильтр питания моторов"
+"C2,C3","100n","Capacitor_SMD:C_0805_2012Metric","2","ВЧ-развязка VMOT,Развязка логики"
+"J1","MCU","Connector_PinHeader_2.54mm:PinHeader_1x08_P2.54mm_Vertical","1","Управление"
+"J2","MOTOR A","TerminalBlock_Phoenix:TerminalBlock_Phoenix_MKDS-1,5-2_1x02_P5.08mm_Horizontal","1","Мотор A"
+"J3","MOTOR B","TerminalBlock_Phoenix:TerminalBlock_Phoenix_MKDS-1,5-2_1x02_P5.08mm_Horizontal","1","Мотор B"
+"J4","VMOT","TerminalBlock_Phoenix:TerminalBlock_Phoenix_MKDS-1,5-2_1x02_P5.08mm_Horizontal","1","Питание моторов"
+"U1","L293D","Package_DIP:DIP-16_W7.62mm","1","H-мосты"

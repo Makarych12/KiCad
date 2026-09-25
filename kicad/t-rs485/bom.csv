@@ -1,0 +1,8 @@
+"Обозначения","Номинал","Посадочное место","Кол-во","Описание"
+"C1","100n","Capacitor_SMD:C_0805_2012Metric","1","Развязка"
+"J1","MCU","Connector_PinHeader_2.54mm:PinHeader_1x05_P2.54mm_Vertical","1","К микроконтроллеру"
+"J2","RS-485","TerminalBlock_Phoenix:TerminalBlock_Phoenix_MKDS-1,5-3_1x03_P5.08mm_Horizontal","1","Линия A, B, GND"
+"JP1","TERM","Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical","1","Перемычка терминатора"
+"R1,R2","680","Resistor_SMD:R_0805_2012Metric","2","Смещение линии (fail-safe)"
+"R3","120","Resistor_SMD:R_0805_2012Metric","1","Терминатор"
+"U1","MAX485","Package_DIP:DIP-8_W7.62mm","1","Приёмопередатчик"

@@ -1,0 +1,7 @@
+"Обозначения","Номинал","Посадочное место","Кол-во","Описание"
+"D1","1N4148","Diode_THT:D_DO-35_SOD27_P7.62mm_Horizontal","1","Защита от переполюсовки (антипараллельно)"
+"J1","IN 12-24V","TerminalBlock_Phoenix:TerminalBlock_Phoenix_MKDS-1,5-2_1x02_P5.08mm_Horizontal","1","Изолированный вход"
+"J2","MCU","Connector_PinHeader_2.54mm:PinHeader_1x03_P2.54mm_Vertical","1","К МК: активный низкий уровень"
+"R1","4k7","Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal","1","Ток светодиода оптопары (0,25 Вт)"
+"R2","10k","Resistor_SMD:R_0805_2012Metric","1","Подтяжка выхода"
+"U1","PC817","Package_DIP:DIP-4_W7.62mm","1","Оптопара"
