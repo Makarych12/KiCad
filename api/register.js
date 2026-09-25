@@ -19,5 +19,6 @@ export default handler(['GET', 'POST'], async (req, res) => {
   const user = { id, name, avatar: AVATARS[crypto.randomInt(AVATARS.length)], created: Date.now(), stats: null };
   await setJSON(s, 'user:' + id, user);
   await s.set('token:' + token, id);
+  await s.incr('stat:users');
   send(res, 200, { token, user: publicUser(user) });
 });

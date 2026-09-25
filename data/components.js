@@ -2,7 +2,8 @@
    Библиотека компонентов.
    curated — описанные вручную популярные компоненты;
    генераторы — параметрические ряды (E24, E6 и т. п.).
-   Цены — ориентировочные розничные в рублях за 1 шт. (2025–2026),
+   Цены — ориентировочные розничные в рублях за 1 шт. (2025–2026);
+   в EUR/USD пересчитываются через KM.money() по региону из настроек;
    сильно зависят от магазина и партии. Ссылки ведут на поиск
    у поставщиков и в базах даташитов — не на конкретный товар.
    ========================================================= */
@@ -382,6 +383,55 @@
     return out;
   }
 
+  /* ---------- регионы, валюты и магазины ----------
+     Базовые цены в каталоге — розница в рублях. Для других регионов
+     они пересчитываются коэффициентом, который учитывает не только
+     курс, но и разницу розничных цен у местных дистрибьюторов
+     (в Европе поштучная розница заметно дороже, чем в РФ и Китае). */
+  var SHOPS = {
+    chipdip: ['ЧипДип', function (q) { return 'https://www.chipdip.ru/search?searchtext=' + q; }],
+    ali: ['AliExpress', function (q) { return 'https://aliexpress.ru/wholesale?SearchText=' + q; }],
+    aliw: ['AliExpress', function (q) { return 'https://www.aliexpress.com/wholesale?SearchText=' + q; }],
+    lcsc: ['LCSC', function (q) { return 'https://www.lcsc.com/search?q=' + q; }],
+    mouser: ['Mouser', function (q) { return 'https://www.mouser.com/c/?q=' + q; }],
+    mousereu: ['Mouser Europe', function (q) { return 'https://eu.mouser.com/c/?q=' + q; }],
+    farnell: ['Farnell', function (q) { return 'https://de.farnell.com/search?st=' + q; }],
+    rs: ['RS Components', function (q) { return 'https://de.rs-online.com/web/c/?searchTerm=' + q; }],
+    heilind: ['Heilind Europe', function (q) { return 'https://www.heilind.eu/search?q=' + q; }],
+    reichelt: ['Reichelt (склад в ЕС)', function (q) { return 'https://www.reichelt.com/de/en/shop/search/' + q; }],
+    tme: ['TME (склад в ЕС)', function (q) { return 'https://www.tme.eu/en/katalog/?queryPhrase=' + q; }],
+    digikey: ['DigiKey', function (q) { return 'https://www.digikey.com/en/products/result?keywords=' + q; }]
+  };
+  var REGIONS = {
+    eu: { id: 'eu', title: 'Европа', flag: '🇪🇺', cur: 'EUR', sign: '€', k: 1 / 55, shops: ['farnell', 'rs', 'mousereu', 'lcsc', 'heilind', 'reichelt', 'tme'],
+      note: 'Farnell, RS Components, Mouser Europe и Heilind — официальные дистрибьюторы; Reichelt и TME отправляют со складов в ЕС (быстро и без таможни); LCSC — дёшево, доставка из Китая.' },
+    ru: { id: 'ru', title: 'Россия', flag: '🇷🇺', cur: 'RUB', sign: '₽', k: 1, shops: ['chipdip', 'ali', 'lcsc', 'mouser'],
+      note: 'Для экспериментов — наборы на маркетплейсах; для партий — дистрибьюторы.' },
+    world: { id: 'world', title: 'Другие страны', flag: '🌍', cur: 'USD', sign: '$', k: 1 / 50, shops: ['digikey', 'mouser', 'lcsc', 'aliw'],
+      note: 'DigiKey и Mouser доставляют почти в любую страну; LCSC и AliExpress — недорого, но дольше.' }
+  };
+  KM.regions = REGIONS;
+  KM.region = function (id) { return REGIONS[id || (KM.store && KM.store.state.settings.region)] || REGIONS.eu; };
+  // Пересчёт рублёвой цены в валюту региона
+  KM.money = function (rub, region) {
+    var r = KM.region(region), v = rub * r.k;
+    if (r.cur === 'RUB') return Math.round(v).toLocaleString('ru-RU') + ' ₽';
+    v = Math.max(0.01, v);
+    var s = (v < 100 ? v.toFixed(2) : Math.round(v).toString()).replace('.', ',');
+    return r.cur === 'EUR' ? s + ' €' : '$' + s;
+  };
+  KM.priceRange = function (p, region) {
+    var a = KM.money(p[0], region), b = KM.money(p[1], region);
+    return a === b ? a : a.replace(/ ?[€₽]$/, '') + '–' + b.replace(/^\$/, '');
+  };
+  // Латинское имя для поиска в зарубежных магазинах
+  function enName(c) {
+    if (c.series === 'resistor') return 'resistor ' + fmtR(c.value).replace('кОм', 'k').replace('МОм', 'M').replace('Ом', '') + ' ohm ' + (c.pkg.indexOf('chip') === 0 ? c.pkg.replace('chip', '') : 'axial');
+    if (c.series === 'mlcc' || c.series === 'disc') return 'capacitor ' + (c.short.split(',')[0] || '').replace('мкФ', 'uF').replace('нФ', 'nF').replace('пФ', 'pF').replace(/\s+/g, '') + ' ' + (c.pkg.indexOf('chip') === 0 ? c.pkg.replace('chip', '') : '');
+    return c.name.replace(/[«»(),"]/g, ' ').replace(/\s+/g, ' ').replace(/[а-яё].*$/i, '').trim() ||
+      (c.fp ? c.fp.split(':').pop().replace(/_/g, ' ') : c.name); // «Кварц 16 МГц» → «Crystal HC49-U Vertical»
+  }
+
   var cache = null;
   KM.data.components = {
     cats: CATS,
@@ -391,15 +441,10 @@
     },
     get: function (id) { return this.list().find(function (c) { return c.id === id; }); },
     smdCode: smdCode,
-    buy: function (c) {
+    buy: function (c, region) {
       var q = encodeURIComponent((c.series === 'resistor' ? 'резистор ' + fmtR(c.value) + ' ' + (c.pkg.indexOf('chip') === 0 ? c.pkg.replace('chip', '') : '') : c.name).replace(/\s+/g, ' ').trim());
-      var qe = encodeURIComponent(c.name.replace(/[«»()]/g, ' ').replace(/[а-яё].*$/i, '').trim() || c.name);
-      return [
-        { name: 'ЧипДип', url: 'https://www.chipdip.ru/search?searchtext=' + q },
-        { name: 'AliExpress', url: 'https://aliexpress.ru/wholesale?SearchText=' + qe },
-        { name: 'LCSC', url: 'https://www.lcsc.com/search?q=' + qe },
-        { name: 'Mouser', url: 'https://www.mouser.com/c/?q=' + qe }
-      ];
+      var qe = encodeURIComponent(enName(c));
+      return KM.region(region).shops.map(function (id) { return { name: SHOPS[id][0], url: SHOPS[id][1](id === 'chipdip' ? q : qe) }; });
     },
     datasheet: function (c) {
       var q = encodeURIComponent(c.name.split(/[ (/]/)[0]);

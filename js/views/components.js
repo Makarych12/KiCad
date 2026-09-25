@@ -141,7 +141,7 @@
     return L;
   }
   function card(c) {
-    return '<a class="card comp-card" href="#/component/' + encodeURIComponent(c.id) + '"><div class="thumb">' + KM.compArt(c) + '</div><div style="min-width:0"><h3>' + KM.esc(c.name) + '</h3><div class="d">' + KM.esc(c.short) + '</div><div class="tiny">≈ ' + c.price[0] + '–' + c.price[1] + ' ₽</div></div></a>';
+    return '<a class="card comp-card" href="#/component/' + encodeURIComponent(c.id) + '"><div class="thumb">' + KM.compArt(c) + '</div><div style="min-width:0"><h3>' + KM.esc(c.name) + '</h3><div class="d">' + KM.esc(c.short) + '</div><div class="tiny">≈ ' + KM.priceRange(c.price) + '</div></div></a>';
   }
 
   KM.views.components = {
@@ -157,7 +157,7 @@
         '<select id="csort" aria-label="Сортировка"><option value="pop">Сначала популярные</option><option value="name"' + (state.sort === 'name' ? ' selected' : '') + '>По названию</option><option value="price"' + (state.sort === 'price' ? ' selected' : '') + '>По цене</option></select></div>' +
         '<div class="chips" style="margin-bottom:14px">' + cats.map(function (c) { return '<button class="chip" data-cat="' + c.id + '" aria-pressed="' + (state.cat === c.id) + '">' + c.ico + ' ' + c.title + '</button>'; }).join('') + '</div>' +
         '<div class="small muted" id="ccount"></div><div class="grid cols-3" id="clist" style="margin-top:10px"></div><div class="row" style="justify-content:center;margin-top:16px"><button class="btn" id="cmore">Показать ещё</button></div>' +
-        '<div class="callout warn mt"><span class="ico">💰</span><div>Цены ориентировочные (розница, рубли, 2025–2026) и сильно зависят от магазина и партии. Ссылки ведут на поиск у поставщиков. Иллюстрации — схематичные изображения типового корпуса.</div></div></div>';
+        '<div class="callout warn mt"><span class="ico">💰</span><div>Цены ориентировочные (розница за 1 шт., ' + KM.region().flag + ' ' + KM.region().title + ', ' + KM.region().cur + ') и сильно зависят от магазина и партии. Ссылки ведут на поиск у поставщиков. Регион и валюту можно сменить в <a href="#/settings">Настройках</a>. Иллюстрации — схематичные изображения типового корпуса.</div></div></div>';
     },
     mount: function (root) {
       var list = KM.$('#clist', root), cnt = KM.$('#ccount', root), more = KM.$('#cmore', root);
@@ -193,13 +193,13 @@
       return '<div class="page"><div class="crumbs"><a href="#/components">Компоненты</a> › <a href="#/components?cat=' + c.cat + '">' + (cat ? cat.ico + ' ' + cat.title : '') + '</a></div>' +
         '<div class="comp-hero"><div><div class="photo">' + KM.compArt(c) + '</div><div class="tiny" style="margin-top:6px;text-align:center">🖼️ Схематичное изображение корпуса</div></div><div>' +
         '<h1>' + KM.esc(c.name) + '</h1><p class="muted" style="font-size:1.05rem">' + KM.esc(c.short) + '</p>' +
-        '<div class="row" style="margin-bottom:14px"><span class="tag copper" style="font-size:.95rem">💰 ≈ ' + c.price[0] + '–' + c.price[1] + ' ₽ / шт.</span>' + KM.ui.bookmarkBtn('/component/' + c.id, c.name) + '</div>' +
+        '<div class="row" style="margin-bottom:14px"><span class="tag copper" style="font-size:.95rem">💰 ≈ ' + KM.priceRange(c.price) + ' / шт.</span>' + KM.ui.bookmarkBtn('/component/' + c.id, c.name) + '</div>' +
         '<p>' + KM.esc(c.desc) + '</p>' +
         '<h2>📐 Характеристики</h2><dl class="spec-list">' + Object.keys(c.specs).map(function (k) { return '<dt>' + KM.esc(k) + '</dt><dd>' + KM.esc(c.specs[k]) + '</dd>'; }).join('') + '</dl>' +
         '<h2 class="mt">🧷 В KiCad</h2><dl class="spec-list"><dt>Символ</dt><dd><code>' + KM.esc(c.sym || '—') + '</code></dd><dt>Посадочное место</dt><dd><code>' + KM.esc(c.fp || 'подберите по даташиту') + '</code></dd></dl>' +
         '</div></div>' +
         '<div class="grid cols-2 mt"><div class="card"><h3>🔗 Даташиты</h3><div class="row">' + KM.data.components.datasheet(c).map(function (l) { return '<a class="btn sm" href="' + l.url + '" target="_blank" rel="noopener">' + l.name + ' ↗</a>'; }).join('') + '</div><p class="tiny" style="margin-top:8px">Даташит — главный источник: цоколёвка, предельные режимы, рекомендуемая разводка.</p></div>' +
-        '<div class="card"><h3>📍 Где купить</h3><div class="row">' + KM.data.components.buy(c).map(function (l) { return '<a class="btn sm" href="' + l.url + '" target="_blank" rel="noopener">' + l.name + ' ↗</a>'; }).join('') + '</div><p class="tiny" style="margin-top:8px">Для партий — дистрибьюторы; для экспериментов — наборы на маркетплейсах. Остерегайтесь подделок популярных микросхем.</p></div></div>' +
+        '<div class="card"><h3>📍 Где купить <span class="tiny muted">' + KM.region().flag + ' ' + KM.region().title + ' · <a href="#/settings">сменить</a></span></h3><div class="row">' + KM.data.components.buy(c).map(function (l) { return '<a class="btn sm" href="' + l.url + '" target="_blank" rel="noopener">' + l.name + ' ↗</a>'; }).join('') + '</div><p class="tiny" style="margin-top:8px">' + KM.region().note + ' Остерегайтесь подделок популярных микросхем.</p></div></div>' +
         (usedIn.length ? '<h2 class="mt">📦 Используется в схемах курса</h2><div class="chips">' + usedIn.map(function (t) { return '<a class="chip" href="#/' + (t.kind === 'project' ? 'project/' : 'template/') + t.id + '">' + KM.esc(t.title) + '</a>'; }).join('') + '</div>' : '') +
         (similar.length ? '<h2 class="mt">Похожие компоненты</h2><div class="grid cols-3">' + similar.map(card).join('') + '</div>' : '') +
         KM.ui.notesBox('/component/' + c.id) + '</div>';

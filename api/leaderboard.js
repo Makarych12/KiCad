@@ -1,4 +1,4 @@
-/* Таблица лидеров. GET — топ-100; POST {xp, level, lessons, projects, streak, achievements} — обновить свою строку */
+/* Таблица лидеров. GET — топ-100 и общая статистика курса (totals); POST {xp, level, lessons, projects, streak, achievements} — обновить свою строку */
 import { handler, send, body, currentUser, publicUser, limited, HttpError } from '../lib/http.js';
 import { getStore, getJSON, setJSON } from '../lib/store.js';
 
@@ -8,7 +8,10 @@ export default handler(['GET', 'POST'], async (req, res) => {
     const ids = await s.zrevrange('lb', 0, 99);
     const users = await Promise.all(ids.map((id) => getJSON(s, 'user:' + id)));
     const rows = users.filter((u) => u && u.stats).map((u) => Object.assign(publicUser(u), u.stats));
-    return send(res, 200, { rows });
+    const sum = (k) => rows.reduce((a, r) => a + (r[k] || 0), 0);
+    const registered = Number(await s.get('stat:users')) || 0;
+    const totals = { users: Math.max(registered, rows.length), active: rows.length, lessons: sum('lessons'), projects: sum('projects'), xp: sum('xp') };
+    return send(res, 200, { rows, totals });
   }
   const user = await currentUser(req);
   if (!user) throw new HttpError(401, 'Нужен вход');

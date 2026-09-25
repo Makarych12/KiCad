@@ -106,6 +106,7 @@ async function suite(label, env, port) {
     await call('POST', '/api/leaderboard', { xp: 500, level: 4, lessons: 9, projects: 2, streak: 5, achievements: 7 }, reg2.json.token);
     const lb = await call('GET', '/api/leaderboard');
     ok(lb.json.rows.length === 2 && lb.json.rows[0].xp === 500 && lb.json.rows[1].name === name, 'лидеры отсортированы по опыту');
+    ok(lb.json.totals && lb.json.totals.users >= 2 && lb.json.totals.lessons === 12 && lb.json.totals.projects === 3, 'общая статистика: ' + JSON.stringify(lb.json.totals));
     await call('POST', '/api/leaderboard', { xp: 900 }, t);
     ok((await call('GET', '/api/leaderboard')).json.rows[0].name === name, 'обновление опыта меняет место');
 

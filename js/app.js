@@ -17,6 +17,8 @@
   R.add('/templates', V.templates);
   R.add('/template/:id', V.template);
   R.add('/sim', V.sim);
+  R.add('/gerber', V.gerber);
+  R.add('/routing', V.routing);
   R.add('/history', V.history);
   R.add('/history/:id', V.article);
   R.add('/reference', V.reference);

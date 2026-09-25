@@ -1,7 +1,7 @@
 /* Service worker KiCad Мастер Pro (сгенерирован tools/make_sw.py — правьте tools/sw.template.js).
    Ядро сайта кэшируется при установке; остальное — при первом обращении
    или по кнопке «Скачать все материалы для офлайна» в Настройках. */
-var VERSION = '7c95b76d4c9e';
+var VERSION = '3394508143b7';
 var CACHE = 'km-' + VERSION;
 var CORE = [
  "./",
@@ -13,6 +13,7 @@ var CORE = [
  "data/demos.js",
  "data/figures.js",
  "data/history.js",
+ "data/home.js",
  "data/i18n.js",
  "data/kicad-gen.js",
  "data/lessons-2.js",
@@ -35,6 +36,7 @@ var CORE = [
  "js/views/community.js",
  "js/views/components.js",
  "js/views/demos.js",
+ "js/views/gerber.js",
  "js/views/history.js",
  "js/views/home.js",
  "js/views/lessons.js",
@@ -42,6 +44,7 @@ var CORE = [
  "js/views/profile.js",
  "js/views/projects.js",
  "js/views/reference.js",
+ "js/views/routing.js",
  "js/views/settings.js",
  "js/views/sim.js",
  "js/views/templates.js"

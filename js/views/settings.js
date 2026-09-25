@@ -9,6 +9,10 @@ KM.views.settings = {
         '<div class="field"><span class="label">Тема</span><div class="chips">' + radio('theme', 'auto', '🖥️ Как в системе') + radio('theme', 'light', '☀️ Светлая') + radio('theme', 'dark', '🌙 Тёмная') + '</div></div>' +
         '<div class="field"><span class="label">Акцентный цвет</span><div class="chips">' + accents.map(function (a) { return '<label class="chip" style="display:inline-flex;gap:6px;align-items:center"><input type="radio" name="accent" value="' + a[0] + '"' + (s.accent === a[0] ? ' checked' : '') + '><span style="width:14px;height:14px;border-radius:50%;background:' + a[1] + ';display:inline-block"></span>' + a[2] + '</label>'; }).join('') + '</div></div>' +
       '</section>' +
+      '<section class="card stack mt"><h2>💶 Регион и валюта</h2><div class="field"><span class="label">Цены и магазины в «Компонентах»</span><div class="chips">' +
+        Object.keys(KM.regions).map(function (k) { var r = KM.regions[k]; return radio('region', k, r.flag + ' ' + r.title + ' (' + r.cur + ')'); }).join('') + '</div></div>' +
+        '<p class="small mb0" id="regNote">' + KM.esc(KM.region().note) + '</p>' +
+        '<p class="tiny mb0">Пример: микроконтроллер ATmega328P ≈ <b id="regEx">' + KM.priceRange(KM.data.components.get('atmega328p').price) + '</b>. Выбор сохраняется в этом браузере.</p></section>' +
       '<section class="card stack mt"><h2>♿ Доступность</h2>' +
         '<div class="field"><label for="fs">Размер текста: <b id="fsv">' + Math.round(s.fontScale * 100) + '%</b></label><input type="range" id="fs" min="0.85" max="1.4" step="0.05" value="' + s.fontScale + '"></div>' +
         '<label class="row"><input type="checkbox" id="rm"' + (s.reduceMotion ? ' checked' : '') + '> Уменьшить анимацию</label>' +
@@ -33,6 +37,14 @@ KM.views.settings = {
     var s = KM.store.state.settings;
     function save() { KM.store.touch(); KM.applySettings(); }
     KM.$$('input[name="theme"],input[name="accent"]', root).forEach(function (r) { r.onchange = function () { s[r.name] = r.value; save(); }; });
+    KM.$$('input[name="region"]', root).forEach(function (r) {
+      r.onchange = function () {
+        s.region = r.value; save();
+        KM.$('#regNote', root).textContent = KM.region().note;
+        KM.$('#regEx', root).textContent = KM.priceRange(KM.data.components.get('atmega328p').price);
+        KM.ui.toast('Регион: ' + KM.region().title, 'Цены — в ' + KM.region().cur + ', магазины обновлены', KM.region().flag);
+      };
+    });
     KM.$('#fs', root).oninput = function () { s.fontScale = parseFloat(this.value); KM.$('#fsv', root).textContent = Math.round(s.fontScale * 100) + '%'; save(); };
     KM.$('#rm', root).onchange = function () { s.reduceMotion = this.checked; save(); };
     KM.$('#hc', root).onchange = function () { s.contrast = this.checked; save(); };

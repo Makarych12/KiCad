@@ -12,6 +12,8 @@ KM.ui.nav = [
   { href: '/projects', ico: '🛠️', key: 'nav.projects' },
   { href: '/advanced', ico: '⚡', key: 'nav.advanced' },
   { group: 'nav.tools' },
+  { href: '/gerber', ico: '👁️', key: 'nav.gerber' },
+  { href: '/routing', ico: '🕹️', key: 'nav.routing' },
   { href: '/sim', ico: '🔬', key: 'nav.sim' },
   { href: '/components', ico: '🧩', key: 'nav.components' },
   { href: '/templates', ico: '📐', key: 'nav.templates' },
@@ -219,6 +221,8 @@ KM.ui.searchIndex = null;
 KM.ui.buildIndex = function () {
   var idx = [];
   KM.data.lessons.forEach(function (l) { idx.push({ t: l.title, s: (l.intro || '') + ' ' + (l.tags || []).join(' '), r: '/lesson/' + l.id, k: l.track === 'advanced' ? 'Продвинутое' : 'Урок' }); });
+  idx.push({ t: 'Gerber & 3D Просмотрщик', s: 'Просмотр слоёв плат Gerber RS-274X, сверловка Excellon, 3D модель', r: '/gerber', k: 'Инструмент' });
+  idx.push({ t: 'Тренажёр трассировки плат (Routing Game)', s: 'Разводка печатных плат, углы 45 градусов, слои F.Cu B.Cu, проверка правил DRC', r: '/routing', k: 'Тренажёр' });
   (KM.data.projects || []).forEach(function (p) { idx.push({ t: p.title, s: p.desc, r: '/project/' + p.id, k: 'Проект' }); });
   (KM.data.templates || []).forEach(function (p) { idx.push({ t: p.title, s: p.desc, r: '/template/' + p.id, k: 'Шаблон' }); });
   (KM.data.demos || []).forEach(function (d) { idx.push({ t: d.title, s: d.desc, r: '/demo/' + d.id, k: 'Видео' }); });

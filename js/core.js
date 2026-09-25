@@ -118,7 +118,7 @@ KM.store = (function () {
       viewed: {},           // компоненты/шаблоны/статьи
       downloads: 0,
       aiQuestions: 0,
-      settings: { theme: 'auto', accent: 'green', lang: 'ru', fontScale: 1, reduceMotion: false, contrast: false, reminders: false, reminderHour: 19 }
+      settings: { theme: 'auto', accent: 'green', lang: 'ru', fontScale: 1, reduceMotion: false, contrast: false, reminders: false, reminderHour: 19, region: 'eu' }
     };
   };
   var state;
