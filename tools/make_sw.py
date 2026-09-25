@@ -3,14 +3,14 @@
 Запускайте после изменения файлов:  python3 tools/make_sw.py"""
 import hashlib, json, os
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SKIP_DIRS = {'server', 'tools', 'node_modules', '.git', 'media/screens/.keep'}
+SKIP_DIRS = {'server', 'tools', 'node_modules', '.git', 'api', 'lib', '.data', '.vercel'}
 CORE_EXT = {'.html', '.css', '.js', '.webmanifest', '.svg', '.png'}
 files, h = [], hashlib.sha256()
 for root, dirs, fns in os.walk(ROOT):
     rel_root = os.path.relpath(root, ROOT)
     dirs[:] = sorted(d for d in dirs if d not in SKIP_DIRS and not d.startswith('.'))
     for fn in sorted(fns):
-        if fn.startswith('.') or fn in ('sw.js', 'assets.json') or fn.endswith('.kicad_prl'):
+        if fn.startswith('.') or fn in ('sw.js', 'assets.json', 'package.json', 'package-lock.json', 'vercel.json') or fn.endswith('.kicad_prl'):
             continue
         rel = os.path.normpath(os.path.join(rel_root, fn)).replace(os.sep, '/')
         full = os.path.join(ROOT, rel)

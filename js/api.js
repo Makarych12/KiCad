@@ -1,20 +1,17 @@
 /* =========================================================
-   Клиент онлайн-функций. Если сайт открыт через server/server.mjs
-   (или в настройках указан адрес сервера), включаются чат, лидеры,
-   синхронизация, галерея, рассылка и AI через сервер.
-   Без сервера всё работает локально; AI-ассистент можно
-   подключить своим API-ключом Anthropic прямо в браузере.
+   Клиент онлайн-функций. API — serverless-функции того же сайта
+   (/api/… на Vercel или локальный server/server.mjs): чат, лидеры,
+   синхронизация, галерея, рассылка и AI-ассистент.
+   Если API недоступно (сайт открыт как файл или офлайн), всё учебное
+   работает локально; AI можно подключить своим ключом в Настройках.
    ========================================================= */
 KM.api = (function () {
   var TOKEN_KEY = 'km.token', USER_KEY = 'km.user';
   var api = { online: false, ai: false, model: null, user: null };
   try { api.user = JSON.parse(localStorage.getItem(USER_KEY) || 'null'); } catch (e) { /* нет доступа к хранилищу */ }
 
-  function base() {
-    var s = KM.store.state.settings.serverUrl;
-    if (s) return s.replace(/\/$/, '');
-    return /^https?:/.test(location.protocol) ? '' : null;
-  }
+  // API всегда на том же домене, что и сайт
+  function base() { return /^https?:/.test(location.protocol) ? '' : null; }
   function token() { try { return localStorage.getItem(TOKEN_KEY); } catch (e) { return null; } }
   function req(method, path, body, timeout) {
     var b = base();
@@ -37,7 +34,7 @@ KM.api = (function () {
   api.detect = function () {
     if (base() === null) { api.online = false; KM.emit('api', api); return Promise.resolve(false); }
     return req('GET', '/api/health', null, 3000).then(function (j) {
-      api.online = !!j.ok; api.ai = !!j.ai; api.model = j.model;
+      api.online = !!j.ok; api.ai = !!j.ai; api.model = j.model; api.storage = j.storage;
       KM.emit('api', api); return api.online;
     }).catch(function () { api.online = false; KM.emit('api', api); return false; });
   };
@@ -57,7 +54,7 @@ KM.api = (function () {
   api.pushStats = KM.debounce(function () {
     if (!api.online || !api.user) return;
     var s = KM.store.state;
-    req('POST', '/api/progress', {
+    req('POST', '/api/leaderboard', {
       xp: s.xp, level: KM.game.level(), streak: KM.game.streak(),
       lessons: Object.keys(s.lessons).filter(function (k) { return s.lessons[k].done; }).length,
       projects: Object.keys(s.projects).filter(function (k) { return s.projects[k].checked; }).length,
@@ -74,19 +71,26 @@ KM.api = (function () {
     });
   };
 
-  api.chatList = function (since) { return req('GET', '/api/chat?since=' + (since || 0)); };
-  api.chatSend = function (text) { return req('POST', '/api/chat', { text: text }); };
+  api.chatList = function (since) { return req('GET', '/api/messages?since=' + (since || 0)); };
+  api.chatSend = function (text) { return req('POST', '/api/messages', { text: text }); };
+  // Serverless не держит постоянных соединений — новые сообщения запрашиваем раз в 4 секунды
   api.chatStream = function (onMsg) {
-    var b = base();
-    if (b === null || !window.EventSource) return null;
-    var es = new EventSource(b + '/api/chat/stream');
-    es.onmessage = function (e) { try { onMsg(JSON.parse(e.data)); } catch (err) { /* ignore */ } };
-    return es;
+    if (base() === null) return null;
+    var since = Date.now(), stopped = false, timer = null;
+    function tick() {
+      if (stopped) return;
+      if (document.hidden) { timer = setTimeout(tick, 4000); return; }
+      api.chatList(since).then(function (j) {
+        j.messages.forEach(function (m) { since = Math.max(since, m.t); onMsg(m); });
+      }).catch(function () { /* повторим позже */ }).then(function () { if (!stopped) timer = setTimeout(tick, 4000); });
+    }
+    timer = setTimeout(tick, 4000);
+    return { close: function () { stopped = true; clearTimeout(timer); } };
   };
 
-  api.gallery = function () { return req('GET', '/api/gallery'); };
-  api.galleryUpload = function (data) { return req('POST', '/api/gallery', data, 60000); };
-  api.rate = function (id, stars) { return req('POST', '/api/gallery/' + id + '/rate', { stars: stars }); };
+  api.gallery = function () { return req('GET', '/api/submit-project'); };
+  api.galleryUpload = function (data) { return req('POST', '/api/submit-project', data, 60000); };
+  api.rate = function (id, stars) { return req('POST', '/api/submit-project?action=rate&id=' + encodeURIComponent(id), { stars: stars }); };
   api.newsletter = function (email) { return req('POST', '/api/newsletter', { email: email }); };
 
   /* ---------- AI-ассистент ---------- */
@@ -108,7 +112,7 @@ KM.api = (function () {
     var ctrl = new AbortController();
     var h = { 'Content-Type': 'application/json' };
     if (token()) h.Authorization = 'Bearer ' + token();
-    fetch(base() + '/api/ai', { method: 'POST', headers: h, body: JSON.stringify({ messages: messages, context: context }), signal: ctrl.signal })
+    fetch(base() + '/api/chat', { method: 'POST', headers: h, body: JSON.stringify({ messages: messages, context: context }), signal: ctrl.signal })
       .then(function (r) {
         if (!r.ok) return r.json().then(function (j) { throw new Error(j.error || 'HTTP ' + r.status); });
         var reader = r.body.getReader(), dec = new TextDecoder(), buf = '';

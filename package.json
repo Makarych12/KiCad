@@ -1,0 +1,16 @@
+{
+  "name": "kicad-master-pro",
+  "version": "1.1.0",
+  "private": true,
+  "type": "module",
+  "description": "KiCad Мастер Pro — интерактивный курс KiCad: статический сайт + serverless API (Vercel)",
+  "scripts": {
+    "dev": "node server/server.mjs",
+    "test:api": "node tools/test-api.mjs"
+  },
+  "engines": { "node": ">=20" },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.128.0",
+    "@upstash/redis": "^1.39.0"
+  }
+}

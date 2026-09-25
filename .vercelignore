@@ -1,0 +1,6 @@
+tools/
+server/
+.data/
+node_modules/
+*.kicad_prl
+.env.example

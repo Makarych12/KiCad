@@ -7,3 +7,10 @@ server/data/
 fp-info-cache
 _autosave-*
 *.lck
+
+# локальные данные и секреты
+.data/
+.env
+.env.local
+.vercel/
+node_modules/

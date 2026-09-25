@@ -143,16 +143,15 @@ KM.store = (function () {
     touch: function () { saveSoon(); KM.emit('change', state); },
     reset: function () { load(defaults()); save(); KM.emit('change', state); },
     // копия прогресса без секретов (API-ключ остаётся только в этом браузере)
-    shareable: function () { var c = JSON.parse(JSON.stringify(state)); delete c.settings.aiKey; delete c.settings.serverUrl; return c; },
+    shareable: function () { var c = JSON.parse(JSON.stringify(state)); delete c.settings.aiKey; return c; },
     export: function () { return JSON.stringify({ app: 'kicad-master-pro', exported: new Date().toISOString(), state: KM.store.shareable() }, null, 2); },
     import: function (json, merge) {
       var obj = typeof json === 'string' ? JSON.parse(json) : json;
       var incoming = obj.state || obj;
       if (!incoming || typeof incoming.xp !== 'number') throw new Error('Файл не похож на экспорт прогресса KiCad Мастер Pro');
-      var keep = { aiKey: state.settings.aiKey, serverUrl: state.settings.serverUrl };
+      var keep = { aiKey: state.settings.aiKey };
       load(merge ? KM.store.merge(state, incoming) : incoming);
       if (keep.aiKey) state.settings.aiKey = keep.aiKey;
-      if (keep.serverUrl) state.settings.serverUrl = keep.serverUrl;
       save(); KM.emit('change', state);
     },
     // Слияние двух состояний (для синхронизации): берём максимум/объединение

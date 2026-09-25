@@ -16,7 +16,8 @@
     }).join('');
   }
   function serverHint() {
-    return '<div class="callout tip"><span class="ico">🖥️</span><div><strong>Нужен сервер курса</strong>Чат, общая галерея, таблица лидеров и рассылка работают, когда сайт открыт через сервер из папки <code>server/</code>:<pre>cd server\nnpm install\nANTHROPIC_API_KEY=ваш_ключ node server.mjs</pre>Затем откройте <code>http://localhost:8080</code>. Или укажите адрес уже запущенного сервера в <a href="#/settings">Настройках</a>.</div></div>';
+    return '<div class="callout tip"><span class="ico">🌐</span><div><strong>Онлайн-функции недоступны</strong>Чат, общая галерея, таблица лидеров и рассылка работают на развёрнутом сайте (Vercel) или при локальном запуске <code>npm run dev</code>. ' +
+      (location.protocol === 'file:' ? 'Сейчас сайт открыт как файл — откройте его через адрес http(s).' : 'Сейчас API не отвечает — проверьте подключение к интернету.') + ' Уроки, практика и симулятор работают и без них.</div></div>';
   }
   function loginBox() {
     if (KM.api.user) return '<div class="row small muted" style="margin-bottom:10px">Вы вошли как <b>' + KM.esc(KM.api.user.avatar + ' ' + KM.api.user.name) + '</b> <button class="btn sm ghost" id="logout">Выйти</button></div>';
@@ -55,12 +56,12 @@
     var ctx = q.ctx || '';
     var avail = KM.api.aiAvailable();
     var sugg = ['Как выбрать резистор для светодиода от 5 В?', 'Чем отличаются клавиши M и G в редакторе схем?', 'Почему ERC пишет «Вход питания не запитан»?', 'Какую ширину дорожки взять для 2 А?', 'Как подключить USB-C только для питания?'];
-    body.innerHTML = (avail ? '' : '<div class="callout warn"><span class="ico">🔑</span><div><strong>Ассистент не подключён</strong>Вариант 1 — запустите сервер курса с переменной <code>ANTHROPIC_API_KEY</code>. Вариант 2 — укажите свой API-ключ Anthropic в <a href="#/settings">Настройках</a>: запросы пойдут напрямую из браузера к api.anthropic.com.</div></div>') +
+    body.innerHTML = (avail ? '' : '<div class="callout warn"><span class="ico">🔑</span><div><strong>Ассистент не подключён</strong>Вариант 1 — владелец сайта задаёт переменную <code>ANTHROPIC_API_KEY</code> в настройках проекта Vercel. Вариант 2 — укажите свой API-ключ Anthropic в <a href="#/settings">Настройках</a>: запросы пойдут напрямую из браузера к api.anthropic.com.</div></div>') +
       '<div class="chat"><div class="chat-log" id="aiLog" aria-live="polite">' +
         (aiHistory.length ? '' : '<div class="msg bot"><div class="who">🤖 Ассистент (Claude)</div>Привет! Я помогу с KiCad и электроникой: объясню шаг урока, найду ошибку в схеме, посчитаю номиналы.' + (ctx ? ' Вижу, вы пришли со страницы: <b>' + KM.esc(ctx) + '</b>.' : '') + '</div>') +
       '</div><form class="chat-form" id="aiForm"><textarea id="aiIn" rows="1" placeholder="Спросите что-нибудь о KiCad…" aria-label="Вопрос ассистенту"' + (avail ? '' : ' disabled') + '></textarea><button class="btn primary" id="aiSend"' + (avail ? '' : ' disabled') + '>Отправить</button><button class="btn" type="button" id="aiStop" hidden>■ Стоп</button></form></div>' +
       '<div class="chips" style="margin-top:10px">' + sugg.map(function (s) { return '<button class="chip" data-sugg>' + KM.esc(s) + '</button>'; }).join('') + '<button class="chip" id="aiClear">🧹 Новый диалог</button></div>' +
-      '<p class="tiny" style="margin-top:8px">Ответы генерирует модель Claude и могут содержать неточности — сверяйтесь с документацией KiCad и даташитами.' + (KM.api.online && KM.api.ai ? ' Модель: ' + KM.esc(KM.api.model) + ' (через сервер курса).' : '') + '</p>';
+      '<p class="tiny" style="margin-top:8px">Ответы генерирует модель Claude и могут содержать неточности — сверяйтесь с документацией KiCad и даташитами.' + (KM.api.online && KM.api.ai ? ' Модель: ' + KM.esc(KM.api.model) + '.' : '') + '</p>';
     var log = KM.$('#aiLog', body), inp = KM.$('#aiIn', body), form = KM.$('#aiForm', body);
     function add(role, text) {
       var d = document.createElement('div'); d.className = 'msg ' + (role === 'user' ? 'me' : 'bot');
@@ -138,18 +139,18 @@
       (KM.api.user ? '<details class="card flat" style="margin-bottom:16px"><summary style="cursor:pointer;font-weight:650">➕ Загрузить проект</summary><form id="upForm" class="stack" style="margin-top:12px">' +
         '<div class="field"><label for="upT">Название</label><input type="text" id="upT" maxlength="80" required></div>' +
         '<div class="field"><label for="upD">Описание</label><textarea id="upD" maxlength="1500" placeholder="Что делает плата, на каком МК, что было сложным…"></textarea></div>' +
-        '<div class="field"><label for="upF">Проект (.zip, .kicad_sch, .kicad_pcb, .net; до 5 МБ)</label><input type="file" id="upF" accept=".zip,.kicad_sch,.kicad_pcb,.kicad_pro,.net"></div>' +
-        '<div class="field"><label for="upI">Картинка (.png, .jpg, .webp; до 5 МБ)</label><input type="file" id="upI" accept="image/png,image/jpeg,image/webp"></div>' +
+        '<div class="field"><label for="upF">Проект (.zip, .kicad_sch, .kicad_pcb, .net; до 700 КБ)</label><input type="file" id="upF" accept=".zip,.kicad_sch,.kicad_pcb,.kicad_pro,.net"></div>' +
+        '<div class="field"><label for="upI">Картинка (.png, .jpg, .webp; до 700 КБ)</label><input type="file" id="upI" accept="image/png,image/jpeg,image/webp"></div>' +
         '<button class="btn primary">Опубликовать</button></form></details>' : '') +
       '<div class="grid cols-3" id="gal"><div class="tiny">Загрузка…</div></div>';
     function load() {
       KM.api.gallery().then(function (j) {
         var box = KM.$('#gal', body);
         box.innerHTML = j.items.length ? j.items.map(function (g) {
-          return '<div class="card">' + (g.image ? '<img src="' + KM.esc((KM.store.state.settings.serverUrl || '') + g.image.url) + '" alt="" style="width:100%;border-radius:8px;aspect-ratio:16/10;object-fit:cover;margin-bottom:10px" loading="lazy">' : '') +
+          return '<div class="card">' + (g.image ? '<img src="' + KM.esc(g.image.url) + '" alt="" style="width:100%;border-radius:8px;aspect-ratio:16/10;object-fit:cover;margin-bottom:10px" loading="lazy">' : '') +
             '<h3>' + KM.esc(g.title) + '</h3><div class="tiny">' + KM.esc(g.user.avatar + ' ' + g.user.name) + ' · ' + new Date(g.t).toLocaleDateString() + '</div><p class="small">' + KM.esc(g.desc) + '</p>' +
             '<div class="row between">' + stars(g.id, g.rating, !!KM.api.user) + '<span class="tiny">' + (g.votes ? g.rating + ' (' + g.votes + ')' : 'нет оценок') + '</span></div>' +
-            (g.file ? '<a class="btn sm" style="margin-top:8px" href="' + KM.esc((KM.store.state.settings.serverUrl || '') + g.file.url) + '" download>⬇️ ' + KM.esc(g.file.name) + '</a>' : '') + '</div>';
+            (g.file ? '<a class="btn sm" style="margin-top:8px" href="' + KM.esc(g.file.url) + '" download>⬇️ ' + KM.esc(g.file.name) + '</a>' : '') + '</div>';
         }).join('') : '<div class="empty"><div class="big">📭</div>Пока никто не поделился проектом. Будьте первым!</div>';
         KM.$$('[data-rate]', box).forEach(function (s) {
           KM.$$('[data-star]', s).forEach(function (b) { b.onclick = function () { KM.api.rate(s.dataset.rate, +b.dataset.star).then(load).catch(function (e) { KM.ui.toast('Ошибка', e.message, '⚠️'); }); }; });
@@ -160,7 +161,7 @@
     if (f) f.onsubmit = function (e) {
       e.preventDefault();
       var file = KM.$('#upF', body).files[0], img = KM.$('#upI', body).files[0];
-      if ((file && file.size > 5e6) || (img && img.size > 5e6)) { KM.ui.toast('Слишком большой файл', 'До 5 МБ', '⚠️'); return; }
+      if ((file && file.size > 700 * 1024) || (img && img.size > 700 * 1024)) { KM.ui.toast('Слишком большой файл', 'До 700 КБ на файл', '⚠️'); return; }
       Promise.all([file ? fileToB64(file) : null, img ? fileToB64(img) : null]).then(function (r) {
         return KM.api.galleryUpload({ title: KM.$('#upT', body).value, desc: KM.$('#upD', body).value, file: r[0], image: r[1] });
       }).then(function () { KM.ui.toast('Проект опубликован', '', '📸'); KM.game.addXP(30, 'Проект в галерее'); gallery(body); })

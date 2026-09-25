@@ -23,9 +23,9 @@ KM.views.settings = {
       '<section class="card stack mt"><h2>📱 Приложение и офлайн</h2><p class="small mb0">Сайт — прогрессивное веб-приложение (PWA): его можно установить на телефон или компьютер и заниматься без интернета.</p>' +
         '<div class="row"><button class="btn primary" id="inst"' + (KM.canInstall() ? '' : ' hidden') + '>📲 Установить приложение</button><button class="btn" id="offline">⬇️ Скачать все материалы для офлайна</button></div><div class="small" id="offStat"></div>' +
         '<p class="tiny mb0">Если кнопки установки нет: на iPhone — «Поделиться → На экран «Домой»», в Chrome — значок установки в адресной строке. Офлайн-режим работает, когда сайт открыт по http(s), а не как файл.</p></section>' +
-      '<section class="card stack mt"><h2>🖥️ Сервер курса</h2><p class="small mb0">Для чата, лидеров, галереи и синхронизации. Если сайт открыт с сервера, адрес указывать не нужно.</p>' +
-        '<div class="row"><input type="text" id="srv" placeholder="http://localhost:8080" value="' + KM.esc(s.serverUrl || '') + '" style="max-width:320px"><button class="btn" id="srvCheck">Проверить</button></div><div class="small" id="srvStat">' + (KM.api.online ? '🟢 Подключено' + (KM.api.ai ? ', AI: ' + KM.esc(KM.api.model) : '') : '⚪ Не подключено') + '</div></section>' +
-      '<section class="card stack mt"><h2>🤖 AI-ассистент (свой ключ)</h2><p class="small mb0">Без сервера ассистент может работать напрямую из браузера с вашим API-ключом Anthropic (console.anthropic.com). Ключ хранится только в этом браузере и отправляется только на api.anthropic.com. Используйте ключ с лимитом расходов и не вводите его на чужих устройствах.</p>' +
+      '<section class="card stack mt"><h2>🌐 Онлайн-функции</h2><p class="small mb0">Чат, лидеры, галерея и синхронизация работают через API сайта.</p>' +
+        '<div class="row"><button class="btn" id="srvCheck">Проверить подключение</button><span class="small" id="srvStat">' + (KM.api.online ? '🟢 Подключено' + (KM.api.ai ? ', AI: ' + KM.esc(KM.api.model) : ', AI не настроен') : '⚪ Недоступно (офлайн или сайт открыт как файл)') + '</span></div></section>' +
+      '<section class="card stack mt"><h2>🤖 AI-ассистент (свой ключ)</h2><p class="small mb0">Если на сайте AI не настроен, ассистент может работать напрямую из браузера с вашим API-ключом Anthropic (console.anthropic.com). Ключ хранится только в этом браузере и отправляется только на api.anthropic.com. Используйте ключ с лимитом расходов и не вводите его на чужих устройствах.</p>' +
         '<div class="row"><input type="password" id="aikey" placeholder="sk-ant-…" value="' + KM.esc(s.aiKey || '') + '" style="max-width:360px" autocomplete="off"><button class="btn" id="aisave">Сохранить</button><button class="btn ghost" id="aidel">Удалить</button></div></section>' +
       '</div>';
   },
@@ -54,9 +54,8 @@ KM.views.settings = {
       navigator.serviceWorker.controller.postMessage({ type: 'cache-all' }, [ch.port2]);
     };
     KM.$('#srvCheck', root).onclick = function () {
-      s.serverUrl = KM.$('#srv', root).value.trim(); save();
       KM.$('#srvStat', root).textContent = 'Проверяю…';
-      KM.api.detect().then(function (ok) { KM.$('#srvStat', root).textContent = ok ? '🟢 Подключено' + (KM.api.ai ? ', AI: ' + KM.api.model : ', AI на сервере не настроен') : '🔴 Сервер не отвечает'; });
+      KM.api.detect().then(function (ok) { KM.$('#srvStat', root).textContent = ok ? '🟢 Подключено' + (KM.api.ai ? ', AI: ' + KM.api.model : ', AI не настроен') + (KM.api.storage === 'memory' ? ' · ⚠️ хранилище в памяти' : '') : '🔴 API не отвечает'; });
     };
     KM.$('#aisave', root).onclick = function () { s.aiKey = KM.$('#aikey', root).value.trim(); save(); KM.ui.toast('Ключ сохранён', 'Только в этом браузере', '🔑'); };
     KM.$('#aidel', root).onclick = function () { delete s.aiKey; KM.$('#aikey', root).value = ''; save(); };
