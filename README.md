@@ -6,7 +6,7 @@
 
 1. **Импорт репозитория.** На [vercel.com/new](https://vercel.com/new) выберите репозиторий `Makarych12/KiCad`. Framework Preset: **Other**. Build Command и Output Directory оставьте пустыми: сайт статический, функции лежат в `api/`.
 2. **Хранилище.** Project → Storage → Marketplace → **Upstash Redis** (это бывший Vercel KV) → Connect к проекту. Vercel сам добавит переменные `KV_REST_API_URL` и `KV_REST_API_TOKEN`.
-3. **AI-ассистент.** Project → Settings → Environment Variables → `ANTHROPIC_API_KEY` (ключ с console.anthropic.com). Необязательно, без ключа сайт работает.
+3. **AI-ассистент.** Project → Settings → Environment Variables → `OPENROUTER_API_KEY` (ключ `sk-or-…` с openrouter.ai/keys) **или** `ANTHROPIC_API_KEY` (console.anthropic.com). Модель по умолчанию — Claude Opus 5 (`anthropic/claude-opus-5` на OpenRouter); другую можно задать через `KM_MODEL`. Необязательно, без ключа сайт работает.
 4. **Deploy** или Redeploy после добавления переменных. Каждый следующий `git push` в `main` деплоится автоматически.
 5. **Проверка.** Откройте `https://<ваш-проект>.vercel.app/api/health`. Должно быть `"storage":"redis"` и, если задан ключ, `"ai":true`.
 
@@ -16,7 +16,7 @@
 
 | Эндпоинт | Методы | Назначение |
 |---|---|---|
-| `/api/chat` | POST | AI-ассистент (Claude, потоковый ответ SSE) |
+| `/api/chat` | POST | AI-ассистент (Claude через Anthropic или OpenRouter, потоковый ответ SSE) |
 | `/api/messages` | GET `?since=`, POST | Чат сообщества (опрос раз в 4 с) |
 | `/api/leaderboard` | GET, POST | Таблица лидеров |
 | `/api/submit-project` | GET, POST, POST `?action=rate&id=` | Галерея проектов и рейтинг |
@@ -33,7 +33,7 @@
 ```bash
 npm install
 npm run dev                      # http://localhost:8080 — статика + те же функции из api/
-ANTHROPIC_API_KEY=sk-ant-... npm run dev
+OPENROUTER_API_KEY=sk-or-... npm run dev   # или ANTHROPIC_API_KEY=sk-ant-...
 npm run test:api                 # тест всех эндпоинтов: с имитацией Upstash Redis и с локальным хранилищем
 ```
 

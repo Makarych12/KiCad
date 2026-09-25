@@ -5,7 +5,7 @@
 
      npm install
      npm run dev            # http://localhost:8080
-     ANTHROPIC_API_KEY=... npm run dev   # с AI-ассистентом
+     OPENROUTER_API_KEY=sk-or-... npm run dev   # с AI-ассистентом (или ANTHROPIC_API_KEY)
 
    Без KV_REST_API_URL/KV_REST_API_TOKEN данные хранятся в .data/db.json.
    ========================================================= */
@@ -80,5 +80,5 @@ http.createServer(async (req, res) => {
   }
 }).listen(PORT, () => {
   const kv = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
-  console.log(`KiCad Мастер Pro: http://localhost:${PORT}  (AI: ${process.env.ANTHROPIC_API_KEY ? 'вкл' : 'выкл'}, данные: ${kv ? 'Redis' : '.data/db.json'})`);
+  console.log(`KiCad Мастер Pro: http://localhost:${PORT}  (AI: ${process.env.ANTHROPIC_API_KEY ? 'Anthropic' : process.env.OPENROUTER_API_KEY ? 'OpenRouter' : 'выкл'}, данные: ${kv ? 'Redis' : '.data/db.json'})`);
 });

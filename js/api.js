@@ -145,15 +145,25 @@ KM.api = (function () {
   function askDirect(messages, context, onText, onDone, onError) {
     var stopped = false, stream = null;
     loadSdk().then(function (Anthropic) {
-      var client = new Anthropic({ apiKey: KM.store.state.settings.aiKey, dangerouslyAllowBrowser: true });
-      stream = client.beta.messages.stream({
-        model: 'claude-opus-5',
+      var key = KM.store.state.settings.aiKey;
+      var params = {
         max_tokens: 16000,
         system: SYSTEM + (context ? '\n\nКонтекст: пользователь сейчас на странице курса: ' + context : ''),
-        messages: messages,
-        betas: ['server-side-fallback-2026-07-01'],
-        fallbacks: 'default'
-      });
+        messages: messages
+      };
+      if (/^sk-or-/.test(key)) {
+        // ключ OpenRouter: тот же формат Anthropic Messages API по адресу openrouter.ai/api
+        var or = new Anthropic({ baseURL: 'https://openrouter.ai/api', apiKey: null, authToken: key, dangerouslyAllowBrowser: true,
+          defaultHeaders: { 'HTTP-Referer': location.origin, 'X-Title': 'KiCad Master Pro' } });
+        params.model = 'anthropic/claude-opus-5';
+        stream = or.messages.stream(params);
+      } else {
+        var client = new Anthropic({ apiKey: key, dangerouslyAllowBrowser: true });
+        params.model = 'claude-opus-5';
+        params.betas = ['server-side-fallback-2026-07-01'];
+        params.fallbacks = 'default';
+        stream = client.beta.messages.stream(params);
+      }
       stream.on('text', function (t) { if (!stopped) onText(t); });
       return stream.finalMessage();
     }).then(function (final) {
@@ -162,7 +172,7 @@ KM.api = (function () {
       onDone();
     }).catch(function (e) {
       if (stopped) return;
-      onError(e && e.status === 401 ? 'Неверный API-ключ.' : 'Ошибка AI: ' + ((e && e.message) || 'не удалось загрузить SDK (нужен интернет)'));
+      onError(e && e.status === 401 ? 'Неверный API-ключ.' : e && e.status === 402 ? 'На балансе OpenRouter недостаточно средств.' : 'Ошибка AI: ' + ((e && e.message) || 'не удалось загрузить SDK (нужен интернет)'));
     });
     return function () { stopped = true; if (stream) stream.abort(); };
   }
