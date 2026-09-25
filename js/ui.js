@@ -17,6 +17,7 @@ KM.ui.nav = [
   { href: '/templates', ico: '📐', key: 'nav.templates' },
   { href: '/reference', ico: '📚', key: 'nav.reference' },
   { href: '/history', ico: '🏛️', key: 'nav.history' },
+  { href: '/models', ico: '🧠', key: 'nav.models' },
   { group: 'nav.me' },
   { href: '/community', ico: '💬', key: 'nav.community' },
   { href: '/profile', ico: '🏆', key: 'nav.profile' },

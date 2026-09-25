@@ -1,6 +1,7 @@
 /* POST /api/chat {messages, context} — AI-ассистент курса (Claude), ответ потоком (SSE) */
 import { handler, body, clean, limited, ip, currentUser, HttpError } from '../lib/http.js';
 import { aiClient, streamParams } from '../lib/ai.js';
+import { resolveModel } from '../lib/models.js';
 
 const SYSTEM = `Ты — дружелюбный преподаватель курса «KiCad Мастер Pro» по проектированию печатных плат в KiCad (версии 8–10) и основам электроники.
 Отвечай по-русски, понятно для начинающего, но технически точно. Давай конкретные шаги с названиями пунктов меню KiCad (русская локализация и английский оригинал в скобках) и горячими клавишами.
@@ -19,6 +20,7 @@ export default handler(['POST'], async (req, res) => {
     .map((x) => ({ role: x.role, content: x.content.slice(0, 8000) }));
   if (!messages.length || messages[messages.length - 1].role !== 'user') throw new HttpError(400, 'Нужен вопрос');
   const context = clean(b.context, 2000);
+  const model = await resolveModel(b.model, ai);
 
   res.statusCode = 200;
   res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
@@ -33,9 +35,9 @@ export default handler(['POST'], async (req, res) => {
       max_tokens: 16000,
       system: SYSTEM + (context ? '\n\nКонтекст: пользователь сейчас на странице курса: ' + context : ''),
       messages
-    });
+    }, model);
     // у Anthropic — beta-поток с серверным fallback при отказе; у OpenRouter — обычный
-    const stream = ai.provider === 'anthropic' ? ai.client.beta.messages.stream(params) : ai.client.messages.stream(params);
+    const stream = params.betas ? ai.client.beta.messages.stream(params) : ai.client.messages.stream(params);
     for await (const event of stream) {
       if (aborted) { stream.abort(); break; }
       if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') out({ text: event.delta.text });

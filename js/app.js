@@ -25,6 +25,7 @@
   R.add('/certificate', V.certificate);
   R.add('/print', V.print);
   R.add('/settings', V.settings);
+  R.add('/models', V.models);
 
   var current = null;
   function render() {
@@ -121,6 +122,7 @@
   /* старт */
   KM.applySettings();
   KM.ui.initSearch();
+  KM.assistant.build();
   KM.ui.renderStats();
   window.addEventListener('hashchange', render);
   render();

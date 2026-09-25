@@ -604,3 +604,152 @@ figure.kfig { margin: 16px 0; }
   a { color: #000; }
 }
 .row select, .row input[type="text"]:not([style*="max-width"]) { width: auto; }
+
+/* =========================================================
+   Адаптивность по диапазонам экранов
+   375–430 телефон · 430–768 смартфон · 768–1024 планшет ·
+   1024–1280 большой планшет · 1280–1920 HD · 2560+ 2K/4K
+   ========================================================= */
+.page { max-width: var(--page-max, 1180px); }
+.page.narrow { max-width: var(--narrow-max, 820px); }
+
+/* крупные мониторы: шире колонка, крупнее базовый шрифт */
+@media (min-width: 1600px) { :root { --sidebar-w: 268px; --page-max: 1360px; --narrow-max: 880px; } }
+@media (min-width: 1920px) { html { font-size: calc(17px * var(--font-scale)); } :root { --page-max: 1500px; --narrow-max: 940px; } }
+@media (min-width: 2400px) { html { font-size: calc(19px * var(--font-scale)); } :root { --sidebar-w: 300px; --topbar-h: 66px; --page-max: 1680px; --narrow-max: 1040px; } }
+@media (min-width: 3200px) { html { font-size: calc(23px * var(--font-scale)); } :root { --sidebar-w: 360px; --topbar-h: 78px; --page-max: 2100px; --narrow-max: 1260px; } }
+@media (min-width: 2400px) {
+  .icon-btn { width: 2.6rem; height: 2.6rem; }
+  .icon-btn svg { width: 1.4rem; height: 1.4rem; }
+  .search { max-width: 42rem; }
+  .search input { height: 2.6rem; }
+  .brand img { width: 2rem; height: 2rem; }
+}
+
+/* шапка главной: декоративная плата только там, где не мешает тексту */
+.hero-art { width: min(460px, 40%); }
+@media (max-width: 1279px) { .hero-art { display: none; } }
+
+/* карточки статистики: без «висящей» одиночки */
+.kpis { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+@media (max-width: 1199px) { .kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 600px) {
+  .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .kpis > .kpi:last-child:nth-child(odd) { grid-column: 1 / -1; }
+}
+
+/* симулятор: 3 колонки на широких, 2 на средних, 1 на узких */
+@media (max-width: 1439px) {
+  .sim-wrap { grid-template-columns: 190px minmax(0, 1fr); }
+  .sim-wrap > .sim-panel { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+  .sim-panel .card + .card { margin-top: 0; }
+  .sim-tools { grid-template-columns: 1fr; }
+}
+@media (max-width: 900px) {
+  .sim-wrap { grid-template-columns: minmax(0, 1fr); }
+  .sim-tools { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+}
+.sim-tool { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* планшеты: сетки карточек по 2 */
+@media (min-width: 601px) and (max-width: 1024px) {
+  .grid.cols-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .grid.cols-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* телефоны */
+@media (max-width: 430px) {
+  :root { --gutter: 14px; }
+  h1 { font-size: 1.55rem; }
+  .card { padding: 16px; }
+  .hero { padding: 22px 18px; }
+  .hero .row .btn { flex: 1 1 100%; }
+  .topbar-stats .stat-pill { padding: 0 8px; }
+  .filter-bar { grid-template-columns: 1fr; }
+  .lesson-item { grid-template-columns: 38px minmax(0, 1fr); }
+  .lesson-item > .tag { display: none; }
+  .lesson-item .num { width: 38px; height: 38px; }
+  .tabs button { padding: 10px 10px; font-size: .9rem; }
+  .player .controls { gap: 4px; }
+  .player .controls input[type="range"] { flex-basis: 100%; order: 10; }
+  .toasts { left: 12px; right: 12px; bottom: 12px; max-width: none; }
+}
+/* касание: крупнее зоны нажатия */
+@media (pointer: coarse) {
+  .btn.sm { min-height: 38px; }
+  .chip { padding: 8px 14px; }
+}
+
+/* =========================================================
+   AI-ассистент: плавающая кнопка и панель
+   ========================================================= */
+.ai-fab {
+  position: fixed; right: max(16px, env(safe-area-inset-right)); bottom: max(16px, env(safe-area-inset-bottom)); z-index: 60;
+  display: inline-flex; align-items: center; gap: 8px; height: 3.25rem; padding: 0 1.1rem 0 .9rem;
+  border: 0; border-radius: 999px; background: var(--accent); color: var(--accent-contrast);
+  font: inherit; font-weight: 700; font-size: .95rem; cursor: pointer; box-shadow: var(--shadow-lg);
+  transition: transform .15s var(--ease), opacity .15s;
+}
+.ai-fab span:first-child { font-size: 1.35rem; }
+.ai-fab:hover { transform: translateY(-2px); }
+.ai-fab.hidden { opacity: 0; pointer-events: none; }
+@media (max-width: 600px) { .ai-fab { width: 3.4rem; height: 3.4rem; padding: 0; justify-content: center; } .ai-fab-label { display: none; } }
+.toasts { bottom: calc(max(16px, env(safe-area-inset-bottom)) + 4.2rem); }
+.ai-panel {
+  position: fixed; z-index: 70; right: 16px; bottom: 16px; width: min(440px, calc(100vw - 32px)); height: min(680px, calc(100vh - var(--topbar-h) - 32px));
+  display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg); overflow: hidden; animation: fade-in .2s var(--ease);
+}
+.ai-panel[hidden] { display: none; }
+.ai-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 10px 10px 10px 16px; border-bottom: 1px solid var(--border); background: var(--surface-2); }
+.ai-head > div:first-child { display: flex; flex-direction: column; min-width: 0; }
+.ai-head a.tiny { color: var(--accent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ai-panel .chat-log { flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.ai-sugg { padding: 0 12px 10px; }
+.ai-sugg:empty { display: none; }
+.ai-panel .chat-form { border-top: 1px solid var(--border); }
+.ai-panel .chat-form .btn { min-width: 44px; padding: 0 12px; }
+@media (max-width: 600px) {
+  .ai-panel { inset: 0; width: 100%; height: 100%; max-height: 100dvh; border-radius: 0; border: 0; }
+}
+@media (min-width: 2400px) { .ai-panel { width: 34rem; height: min(52rem, calc(100vh - var(--topbar-h) - 40px)); } }
+
+/* =========================================================
+   Каталог моделей AI
+   ========================================================= */
+.model-current { margin-bottom: 16px; }
+.model-filters { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr) auto; align-items: center; }
+@media (max-width: 1024px) { .model-filters { grid-template-columns: 1fr 1fr; } .model-filters > :first-child, .model-filters > .chips { grid-column: 1 / -1; } }
+@media (max-width: 430px) { .model-filters { grid-template-columns: 1fr; } }
+.model-grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); margin-top: 12px; }
+@media (min-width: 2400px) { .model-grid { grid-template-columns: repeat(auto-fill, minmax(22rem, 1fr)); } }
+.model-card { display: flex; flex-direction: column; gap: 10px; }
+.model-card.selected { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft), var(--shadow); }
+.model-card.denied { opacity: .72; }
+.mc-head { display: flex; gap: 12px; align-items: center; min-width: 0; }
+.mc-logo { flex: none; width: 2.6rem; height: 2.6rem; border-radius: 12px; display: grid; place-items: center; color: #fff; font-weight: 800; font-size: 1.15rem; }
+.mc-title { min-width: 0; }
+.mc-title h3 { margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mc-title code { font-size: .72rem; word-break: break-all; }
+.mc-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.mc-stats > div { background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 6px 8px; display: flex; flex-direction: column; min-width: 0; }
+.mc-stats span { font-size: .72rem; color: var(--text-3); }
+.mc-stats b { font-family: var(--mono); font-size: .9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mc-unit { margin-top: -6px; }
+.mc-tags:empty { display: none; }
+.mc-desc { flex: 1; margin: 0; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.model-card .btn { width: 100%; }
+
+/* длинные подписи кнопок (навигация между уроками и т. п.) переносятся, а не растягивают страницу */
+.btn { max-width: 100%; }
+nav.row.between .btn { white-space: normal; text-align: left; min-height: 40px; height: auto; padding-top: 8px; padding-bottom: 8px; }
+@media (max-width: 600px) {
+  .btn { white-space: normal; text-align: center; height: auto; }
+  nav.row.between { flex-direction: column; align-items: stretch; }
+  nav.row.between > span:empty { display: none; }
+}
+/* длинные идентификаторы (посадочные места, код) переносятся в любом месте */
+:not(pre) > code { overflow-wrap: anywhere; word-break: break-word; }
+.spec-list dd, .spec-list dt { min-width: 0; overflow-wrap: anywhere; }
+.spec-list { grid-template-columns: minmax(auto, max-content) minmax(0, 1fr); }
+.tbl td { overflow-wrap: anywhere; }

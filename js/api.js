@@ -112,7 +112,7 @@ KM.api = (function () {
     var ctrl = new AbortController();
     var h = { 'Content-Type': 'application/json' };
     if (token()) h.Authorization = 'Bearer ' + token();
-    fetch(base() + '/api/chat', { method: 'POST', headers: h, body: JSON.stringify({ messages: messages, context: context }), signal: ctrl.signal })
+    fetch(base() + '/api/chat', { method: 'POST', headers: h, body: JSON.stringify({ messages: messages, context: context, model: KM.store.state.settings.aiModel || undefined }), signal: ctrl.signal })
       .then(function (r) {
         if (!r.ok) return r.json().then(function (j) { throw new Error(j.error || 'HTTP ' + r.status); });
         var reader = r.body.getReader(), dec = new TextDecoder(), buf = '';
@@ -155,14 +155,18 @@ KM.api = (function () {
         // ключ OpenRouter: тот же формат Anthropic Messages API по адресу openrouter.ai/api
         var or = new Anthropic({ baseURL: 'https://openrouter.ai/api', apiKey: null, authToken: key, dangerouslyAllowBrowser: true,
           defaultHeaders: { 'HTTP-Referer': location.origin, 'X-Title': 'KiCad Master Pro' } });
-        params.model = 'anthropic/claude-opus-5';
+        params.model = KM.store.state.settings.aiModel || 'anthropic/claude-opus-5';
         stream = or.messages.stream(params);
       } else {
         var client = new Anthropic({ apiKey: key, dangerouslyAllowBrowser: true });
-        params.model = 'claude-opus-5';
-        params.betas = ['server-side-fallback-2026-07-01'];
-        params.fallbacks = 'default';
-        stream = client.beta.messages.stream(params);
+        var chosen = KM.store.state.settings.aiModel;
+        // с ключом Anthropic доступны только модели Claude: anthropic/claude-opus-4.8 → claude-opus-4-8
+        params.model = chosen && /^anthropic\//.test(chosen) ? chosen.replace(/^anthropic\//, '').replace(/\./g, '-') : 'claude-opus-5';
+        if (params.model === 'claude-opus-5' || params.model === 'claude-fable-5-1') {
+          params.betas = ['server-side-fallback-2026-07-01'];
+          params.fallbacks = 'default';
+          stream = client.beta.messages.stream(params);
+        } else stream = client.messages.stream(params);
       }
       stream.on('text', function (t) { if (!stopped) onText(t); });
       return stream.finalMessage();

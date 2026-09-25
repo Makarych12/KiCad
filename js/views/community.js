@@ -1,6 +1,6 @@
 /* Сообщество: AI-ассистент, чат, галерея, лидеры, рассылка */
 (function () {
-  var tab = 'ai', aiHistory = [], es = null, stopAi = null;
+  var tab = 'ai', aiHistory = KM.assistant.history, es = null, stopAi = null;
 
   // безопасная разметка ответов: экранирование + ```код```, **жирный**, `код`, списки
   function mdChat(s) {
@@ -61,7 +61,7 @@
         (aiHistory.length ? '' : '<div class="msg bot"><div class="who">🤖 Ассистент (Claude)</div>Привет! Я помогу с KiCad и электроникой: объясню шаг урока, найду ошибку в схеме, посчитаю номиналы.' + (ctx ? ' Вижу, вы пришли со страницы: <b>' + KM.esc(ctx) + '</b>.' : '') + '</div>') +
       '</div><form class="chat-form" id="aiForm"><textarea id="aiIn" rows="1" placeholder="Спросите что-нибудь о KiCad…" aria-label="Вопрос ассистенту"' + (avail ? '' : ' disabled') + '></textarea><button class="btn primary" id="aiSend"' + (avail ? '' : ' disabled') + '>Отправить</button><button class="btn" type="button" id="aiStop" hidden>■ Стоп</button></form></div>' +
       '<div class="chips" style="margin-top:10px">' + sugg.map(function (s) { return '<button class="chip" data-sugg>' + KM.esc(s) + '</button>'; }).join('') + '<button class="chip" id="aiClear">🧹 Новый диалог</button></div>' +
-      '<p class="tiny" style="margin-top:8px">Ответы генерирует модель Claude и могут содержать неточности — сверяйтесь с документацией KiCad и даташитами.' + (KM.api.online && KM.api.ai ? ' Модель: ' + KM.esc(KM.api.model) + '.' : '') + '</p>';
+      '<p class="tiny" style="margin-top:8px">Ответы генерирует модель Claude и могут содержать неточности — сверяйтесь с документацией KiCad и даташитами.' + ' Модель: <a href="#/models">' + KM.esc(KM.store.state.settings.aiModel || KM.api.model || 'по умолчанию') + '</a> (сменить).' + '</p>';
     var log = KM.$('#aiLog', body), inp = KM.$('#aiIn', body), form = KM.$('#aiForm', body);
     function add(role, text) {
       var d = document.createElement('div'); d.className = 'msg ' + (role === 'user' ? 'me' : 'bot');
@@ -93,7 +93,7 @@
     inp.onkeydown = function (e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); form.onsubmit(e); } };
     KM.$('#aiStop', body).onclick = function () { if (stopAi) stopAi(); KM.$('#aiSend', body).disabled = false; this.hidden = true; };
     KM.$$('[data-sugg]', body).forEach(function (b) { b.onclick = function () { send(b.textContent); }; });
-    KM.$('#aiClear', body).onclick = function () { aiHistory = []; ai(body, q); };
+    KM.$('#aiClear', body).onclick = function () { aiHistory.length = 0; ai(body, q); };
     if (avail) inp.focus();
   }
 
