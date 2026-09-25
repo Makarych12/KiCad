@@ -1,7 +1,7 @@
 /* Service worker KiCad Мастер Pro (сгенерирован tools/make_sw.py — правьте tools/sw.template.js).
    Ядро сайта кэшируется при установке; остальное — при первом обращении
    или по кнопке «Скачать все материалы для офлайна» в Настройках. */
-var VERSION = '3394508143b7';
+var VERSION = '24e60b0d2fff';
 var CACHE = 'km-' + VERSION;
 var CORE = [
  "./",
@@ -51,7 +51,8 @@ var CORE = [
 ];
 
 self.addEventListener('install', function (e) {
-  e.waitUntil(caches.open(CACHE).then(function (c) { return c.addAll(CORE); }).then(function () { return self.skipWaiting(); }));
+  e.waitUntil(caches.open(CACHE).then(function (c) { // cache: 'reload' — мимо HTTP-кэша браузера, иначе в новый кэш могут попасть старые файлы
+    return c.addAll(CORE.map(function (u) { return new Request(u, { cache: 'reload' }); })); }).then(function () { return self.skipWaiting(); }));
 });
 
 self.addEventListener('activate', function (e) {

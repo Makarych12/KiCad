@@ -624,14 +624,14 @@ figure.kfig { margin: 16px 0; }
   .brand img { width: 2rem; height: 2rem; }
 }
 
-/* шапка главной: декоративная плата. На широких экранах — колонка справа,
-   на планшетах и телефонах — приглушённый фон за текстом. */
-.hero { display: grid; grid-template-columns: minmax(0, 1fr); align-items: center; }
+/* шапка главной: декоративная плата. От 900px — колонка справа от текста,
+   на узких экранах — под текстом и кнопками. */
+.hero { display: grid; grid-template-columns: minmax(0, 1fr); align-items: center; gap: 20px; }
 .hero-text { position: relative; z-index: 1; min-width: 0; }
-.hero-art { position: absolute; right: -8%; bottom: -12%; width: min(560px, 115%); opacity: .2; pointer-events: none; }
-@media (min-width: 1100px) {
+.hero-art { display: block; width: 100%; max-width: 440px; justify-self: center; pointer-events: none; }
+@media (min-width: 900px) {
   .hero { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: clamp(16px, 3vw, 40px); }
-  .hero-art { position: static; width: 100%; max-width: 560px; justify-self: end; opacity: 1; }
+  .hero-art { max-width: 560px; justify-self: end; }
 }
 .hero-art .ha-cu path { fill: none; stroke: #3ccf95; stroke-opacity: .55; stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; }
 .hero-art .ha-bcu path { fill: none; stroke: #4d8fff; stroke-opacity: .35; stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; }

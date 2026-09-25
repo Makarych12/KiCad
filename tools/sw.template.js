@@ -6,7 +6,8 @@ var CACHE = 'km-' + VERSION;
 var CORE = __CORE__;
 
 self.addEventListener('install', function (e) {
-  e.waitUntil(caches.open(CACHE).then(function (c) { return c.addAll(CORE); }).then(function () { return self.skipWaiting(); }));
+  e.waitUntil(caches.open(CACHE).then(function (c) { // cache: 'reload' — мимо HTTP-кэша браузера, иначе в новый кэш могут попасть старые файлы
+    return c.addAll(CORE.map(function (u) { return new Request(u, { cache: 'reload' }); })); }).then(function () { return self.skipWaiting(); }));
 });
 
 self.addEventListener('activate', function (e) {

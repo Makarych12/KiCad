@@ -96,7 +96,14 @@
 
   /* PWA */
   if ('serviceWorker' in navigator && /^https?:/.test(location.protocol)) {
-    navigator.serviceWorker.register('sw.js').catch(function (e) { console.warn('SW:', e); });
+    // После деплоя старый service worker успевает отдать прежние JS/CSS.
+    // Когда новый берёт управление — один раз перезагружаем страницу, чтобы сразу показать свежую версию.
+    var hadController = !!navigator.serviceWorker.controller, reloaded = false;
+    navigator.serviceWorker.addEventListener('controllerchange', function () {
+      if (!hadController || reloaded) return;
+      reloaded = true; location.reload();
+    });
+    navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(function (reg) { reg.update(); }).catch(function (e) { console.warn('SW:', e); });
   }
   var deferredPrompt = null;
   window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); deferredPrompt = e; KM.emit('installable'); });
