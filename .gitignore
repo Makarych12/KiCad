@@ -14,3 +14,6 @@ _autosave-*
 .env.local
 .vercel/
 node_modules/
+.vercel
+.env*
+!.env.example
