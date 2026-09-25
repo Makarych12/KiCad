@@ -1,790 +1,385 @@
 /* =========================================================
-   Модуль трассировки и интерактивный симулятор печатных плат
-   (PCB Routing Game & Real-time DRC).
-   Тренажёр ручной разводки плат в стиле KiCad: 45° углы,
-   переключение слоёв (F.Cu / B.Cu), переходные отверстия (Vias),
-   проверка правил проектирования (DRC) и система уровней.
+   Тренажёр трассировки: разводка дорожек как в KiCad.
+   Логика уровней, DRC и связности — js/routing-engine.js (KM.routing).
+   Здесь — SVG-поле, управление мышью/пальцем/клавиатурой и прогресс.
    ========================================================= */
 (function () {
   'use strict';
+  var R = KM.routing;
+  var COLORS = { F: '#d8453b', B: '#3d7be0' };
+  var NET_COLORS = ['#ffd24a', '#6ee7b7', '#f9a8d4', '#93c5fd', '#fdba74', '#c4b5fd', '#a3e635', '#67e8f9'];
 
-  var currentLevelId = 'l1';
-  var activeLayer = 'fcu'; // 'fcu' (Top, Red) или 'bcu' (Bottom, Blue)
-  var trackWidth = 0.5; // 0.25, 0.5, 1.0 мм
-  var gridStep = 1.0; // 0.5 или 1.0 мм
-  var scale = 8; // пикселей на мм
-  var panX = 0, panY = 0;
+  var S = { lv: 0, items: [], cur: null, layer: 'F', width: 0.5, diag: false, tool: 'route', hover: null, ev: null, zoom: 1,
+    usedSolution: false, announced: false, focus: null, confirmReset: false };
+  var env = null;
 
-  // Текущее состояние трассировки
-  var routingActive = false;
-  var currentNet = null;
-  var currentTrack = []; // [{x, y, layer, w}]
-  var tracks = []; // массив завершённых дорожек [{net, layer, w, pts: [{x,y}]}]
-  var vias = []; // массив переходных отверстий [{x, y, net, d, drill}]
-  var drcErrors = []; // ошибки DRC [{type, x, y, msg, severity}]
+  function lv() { return R.levels[S.lv]; }
+  function prog() { var s = KM.store.state; if (!s.routing) s.routing = {}; return s.routing; }
+  function fmt(v) { return (Math.round(v * 100) / 100).toString().replace('.', ','); }
+  function stars(n) { return '<span class="rt-stars" aria-label="' + n + ' из 3">' + '★★★'.slice(0, n) + '<span>' + '★★★'.slice(n) + '</span></span>'; }
+  function netColor(net) { var ns = Object.keys(R.nets(lv())).sort(); return NET_COLORS[ns.indexOf(net) % NET_COLORS.length]; }
 
-  /* =========================================================
-     Уровни тренажёра
-     ========================================================= */
-  var LEVELS = [
-    {
-      id: 'l1',
-      title: 'Уровень 1: Светодиодный маяк',
-      desc: 'Базовая 1-слойная плата. Соедините источник питания, токоограничивающий резистор и светодиод. Избегайте прямых углов 90°!',
-      boardW: 40,
-      boardH: 30,
-      xp: 80,
-      components: [
-        { id: 'J1', name: 'Батарея 3.3V', x: 6, y: 15, rot: 90, pads: [{ id: '1', net: 'VCC', x: 6, y: 12.5 }, { id: '2', net: 'GND', x: 6, y: 17.5 }] },
-        { id: 'R1', name: 'Резистор 220 Ом', x: 20, y: 8, rot: 0, pads: [{ id: '1', net: 'VCC', x: 17.5, y: 8 }, { id: '2', net: 'LED_A', x: 22.5, y: 8 }] },
-        { id: 'D1', name: 'Светодиод 0805', x: 32, y: 15, rot: 90, pads: [{ id: 'A', net: 'LED_A', x: 32, y: 12.5 }, { id: 'K', net: 'GND', x: 32, y: 17.5 }] }
-      ],
-      rules: { allowBcu: false, minClearance: 0.4, no90Deg: true }
-    },
-    {
-      id: 'l2',
-      title: 'Уровень 2: Делитель и фильтр',
-      desc: 'Разводка схемы обхода препятствий. Соедините резистивный делитель напряжения и блокировочный конденсатор, обходя выводы без коротких замыканий.',
-      boardW: 46,
-      boardH: 32,
-      xp: 120,
-      components: [
-        { id: 'IN', name: 'Входной разъём', x: 6, y: 16, rot: 90, pads: [{ id: '1', net: 'VIN', x: 6, y: 13.5 }, { id: '2', net: 'GND', x: 6, y: 18.5 }] },
-        { id: 'R1', name: 'Резистор R1 10к', x: 18, y: 10, rot: 0, pads: [{ id: '1', net: 'VIN', x: 15.5, y: 10 }, { id: '2', net: 'MID', x: 20.5, y: 10 }] },
-        { id: 'R2', name: 'Резистор R2 10к', x: 28, y: 22, rot: 0, pads: [{ id: '1', net: 'MID', x: 25.5, y: 22 }, { id: '2', net: 'GND', x: 30.5, y: 22 }] },
-        { id: 'C1', name: 'Конденсатор 100нФ', x: 28, y: 10, rot: 90, pads: [{ id: '1', net: 'MID', x: 28, y: 7.5 }, { id: '2', net: 'GND', x: 28, y: 12.5 }] },
-        { id: 'OUT', name: 'Выходной разъём', x: 40, y: 16, rot: 90, pads: [{ id: '1', net: 'MID', x: 40, y: 13.5 }, { id: '2', net: 'GND', x: 40, y: 18.5 }] }
-      ],
-      rules: { allowBcu: true, minClearance: 0.35, no90Deg: true }
-    },
-    {
-      id: 'l3',
-      title: 'Уровень 3: Мультивибратор NE555',
-      desc: 'Многовыводная микросхема SOIC-8. Разведите времязадающие цепи, соединив выводы TRIG (2) и THRESH (6), а также шины питания VCC и GND.',
-      boardW: 52,
-      boardH: 36,
-      xp: 160,
-      components: [
-        {
-          id: 'U1', name: 'NE555 (SOIC-8)', x: 26, y: 18, rot: 0,
-          pads: [
-            { id: '1', net: 'GND', x: 23.5, y: 14.2 },
-            { id: '2', net: 'TRIG', x: 23.5, y: 15.5 },
-            { id: '3', net: 'OUT', x: 23.5, y: 16.8 },
-            { id: '4', net: 'VCC', x: 23.5, y: 18.1 },
-            { id: '5', net: 'CTRL', x: 28.5, y: 18.1 },
-            { id: '6', net: 'TRIG', x: 28.5, y: 16.8 },
-            { id: '7', net: 'DISCH', x: 28.5, y: 15.5 },
-            { id: '8', net: 'VCC', x: 28.5, y: 14.2 }
-          ]
-        },
-        { id: 'R1', name: 'Резистор R1', x: 14, y: 10, rot: 0, pads: [{ id: '1', net: 'VCC', x: 11.5, y: 10 }, { id: '2', net: 'DISCH', x: 16.5, y: 10 }] },
-        { id: 'R2', name: 'Резистор R2', x: 38, y: 10, rot: 0, pads: [{ id: '1', net: 'DISCH', x: 35.5, y: 10 }, { id: '2', net: 'TRIG', x: 40.5, y: 10 }] },
-        { id: 'C1', name: 'Конденсатор C1', x: 38, y: 26, rot: 90, pads: [{ id: '1', net: 'TRIG', x: 38, y: 23.5 }, { id: '2', net: 'GND', x: 38, y: 28.5 }] },
-        { id: 'PWR', name: 'Питание', x: 6, y: 18, rot: 90, pads: [{ id: '1', net: 'VCC', x: 6, y: 15.5 }, { id: '2', net: 'GND', x: 6, y: 20.5 }] }
-      ],
-      rules: { allowBcu: true, minClearance: 0.3, no90Deg: true }
-    },
-    {
-      id: 'l4',
-      title: 'Уровень 4: Двухслойная трассировка с Vias',
-      desc: 'Топологический вызов: дорожки физически пересекаются! Переключайтесь на нижний слой B.Cu нажатием клавиши «V» для установки переходных отверстий.',
-      boardW: 48,
-      boardH: 34,
-      xp: 200,
-      components: [
-        { id: 'J_L', name: 'Вход сигналов', x: 6, y: 17, rot: 90, pads: [{ id: '1', net: 'SIG_A', x: 6, y: 11 }, { id: '2', net: 'SIG_B', x: 6, y: 17 }, { id: '3', net: 'SIG_C', x: 6, y: 23 }] },
-        { id: 'J_R', name: 'Выход сигналов', x: 42, y: 17, rot: 90, pads: [{ id: '1', net: 'SIG_C', x: 42, y: 11 }, { id: '2', net: 'SIG_B', x: 42, y: 17 }, { id: '3', net: 'SIG_A', x: 42, y: 23 }] }
-      ],
-      rules: { allowBcu: true, requireVias: true, minClearance: 0.35, no90Deg: true }
-    },
-    {
-      id: 'l5',
-      title: 'Уровень 5: Силовой узел DFM (Ширина проводников)',
-      desc: 'Разведите плату импульсного стабилизатора с соблюдением плотности тока: силовые шины VIN, SW, VOUT должны быть шириной не менее 1.0 мм!',
-      boardW: 50,
-      boardH: 36,
-      xp: 250,
-      components: [
-        { id: 'J_IN', name: 'Вход 12V', x: 6, y: 18, rot: 90, pads: [{ id: '1', net: 'VIN', x: 6, y: 15 }, { id: '2', net: 'GND', x: 6, y: 21 }] },
-        { id: 'U1', name: 'Драйвер SW', x: 22, y: 18, rot: 0, pads: [{ id: '1', net: 'VIN', x: 19.5, y: 16 }, { id: '2', net: 'SW', x: 24.5, y: 16 }, { id: '3', net: 'FB', x: 19.5, y: 20 }, { id: '4', net: 'GND', x: 24.5, y: 20 }] },
-        { id: 'L1', name: 'Катушка L1', x: 33, y: 18, rot: 0, pads: [{ id: '1', net: 'SW', x: 30, y: 18 }, { id: '2', net: 'VOUT', x: 36, y: 18 }] },
-        { id: 'J_OUT', name: 'Выход 5V', x: 44, y: 18, rot: 90, pads: [{ id: '1', net: 'VOUT', x: 44, y: 15 }, { id: '2', net: 'GND', x: 44, y: 21 }] }
-      ],
-      rules: { allowBcu: true, minPowerWidth: 1.0, powerNets: ['VIN', 'SW', 'VOUT', 'GND'], minClearance: 0.4, no90Deg: true }
+  function startLevel(i) {
+    S.lv = Math.max(0, Math.min(R.levels.length - 1, i));
+    var l = lv();
+    S.items = []; S.cur = null; S.layer = 'F'; S.width = l.rules.width; S.tool = 'route'; S.hover = null;
+    S.usedSolution = false; S.announced = false; S.focus = null; S.confirmReset = false;
+    S.zoom = autoZoom();
+    evaluate();
+  }
+  // на узких экранах — не меньше ~11 px на мм, поле прокручивается
+  function autoZoom() {
+    var w = env && env.field ? env.field.clientWidth : 0;
+    return w ? Math.max(1, Math.min(4, (lv().w + 3) * 11 / w)) : 1;
+  }
+  function evaluate() {
+    var sp = R.split(S.items);
+    S.ev = R.evaluate(lv(), sp.tracks, sp.vias);
+  }
+
+  /* =================== привязка курсора =================== */
+  function snap(p, forNet) {
+    var l = lv(), pads = R.pads(l), sp = R.split(S.items);
+    for (var i = 0; i < pads.length; i++) {
+      var P = pads[i];
+      if (R.geom.dSPad([p[0], p[1], p[0], p[1]], P) <= 0.25) return { pt: [P.x, P.y], pad: P };
     }
-  ];
-
-  function getLevel() {
-    return LEVELS.find(function (l) { return l.id === currentLevelId; }) || LEVELS[0];
-  }
-
-  /* =========================================================
-     Вспомогательные геометрические функции
-     ========================================================= */
-  function snapToGrid(val, step) {
-    return Math.round(val / step) * step;
-  }
-
-  // Приведение отрезка к углам 45° / 90° (KiCad-стиль)
-  function snap45(x0, y0, x1, y1) {
-    var dx = x1 - x0, dy = y1 - y0;
-    var absDx = Math.abs(dx), absDy = Math.abs(dy);
-    var signX = dx >= 0 ? 1 : -1;
-    var signY = dy >= 0 ? 1 : -1;
-
-    if (absDx > absDy * 2) return { x: x1, y: y0 }; // чисто горизонтальная
-    if (absDy > absDx * 2) return { x: x0, y: y1 }; // чисто вертикальная
-    // диагональ 45°
-    var d = Math.min(absDx, absDy);
-    return { x: x0 + d * signX, y: y0 + d * signY };
-  }
-
-  function dist(x1, y1, x2, y2) {
-    return Math.hypot(x2 - x1, y2 - y1);
-  }
-
-  function distToSegment(px, py, x1, y1, x2, y2) {
-    var l2 = (x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1);
-    if (l2 === 0) return dist(px, py, x1, y1);
-    var t = Math.max(0, Math.min(1, ((px - x1) * (x2 - x1) + (py - y1) * (y2 - y1)) / l2));
-    var projX = x1 + t * (x2 - x1);
-    var projY = y1 + t * (y2 - y1);
-    return dist(px, py, projX, projY);
-  }
-
-  // Пересечение двух отрезков
-  function segmentsIntersect(a1x, a1y, a2x, a2y, b1x, b1y, b2x, b2y) {
-    function ccw(ax, ay, bx, by, cx, cy) {
-      return (cy - ay) * (bx - ax) > (by - ay) * (cx - ax);
-    }
-    return ccw(a1x, a1y, b1x, b1y, b2x, b2y) !== ccw(a2x, a2y, b1x, b1y, b2x, b2y) &&
-           ccw(a1x, a1y, a2x, a2y, b1x, b1y) !== ccw(a1x, a1y, a2x, a2y, b2x, b2y);
-  }
-
-  /* =========================================================
-     Проверка правил проектирования (DRC)
-     ========================================================= */
-  function runDRC() {
-    drcErrors = [];
-    var lvl = getLevel();
-    var allPads = [];
-    lvl.components.forEach(function (c) {
-      c.pads.forEach(function (p) { allPads.push({ ...p, comp: c.id }); });
+    for (var v = 0; v < sp.vias.length; v++) if (Math.hypot(sp.vias[v].x - p[0], sp.vias[v].y - p[1]) <= 0.7) return { pt: [sp.vias[v].x, sp.vias[v].y], via: sp.vias[v] };
+    var best = null;
+    sp.tracks.forEach(function (t) {
+      if (forNet && t.net !== forNet) return;
+      t.pts.forEach(function (q) { var d = Math.hypot(q[0] - p[0], q[1] - p[1]); if (d <= 0.6 && (!best || d < best.d)) best = { d: d, pt: q.slice(), track: t }; });
     });
-
-    // 1. Проверка замыканий (Short Circuits) между разными цепями
-    for (var i = 0; i < tracks.length; i++) {
-      var t1 = tracks[i];
-      for (var j = i + 1; j < tracks.length; j++) {
-        var t2 = tracks[j];
-        if (t1.net !== t2.net && t1.layer === t2.layer) {
-          // Проверяем пересечение каждого сегмента t1 с каждым сегментом t2
-          for (var s1 = 0; s1 < t1.pts.length - 1; s1++) {
-            for (var s2 = 0; s2 < t2.pts.length - 1; s2++) {
-              var p1 = t1.pts[s1], p2 = t1.pts[s1 + 1];
-              var q1 = t2.pts[s2], q2 = t2.pts[s2 + 1];
-              if (segmentsIntersect(p1.x, p1.y, p2.x, p2.y, q1.x, q1.y, q2.x, q2.y)) {
-                drcErrors.push({
-                  type: 'short',
-                  x: (p1.x + p2.x) / 2,
-                  y: (p1.y + p2.y) / 2,
-                  msg: 'КЗ: Замыкание цепей «' + t1.net + '» и «' + t2.net + '»!',
-                  severity: 'error'
-                });
-              }
-            }
-          }
+    if (best) return best;
+    sp.tracks.forEach(function (t) {
+      if (forNet && t.net !== forNet) return;
+      for (var i = 1; i < t.pts.length; i++) {
+        var a = t.pts[i - 1], b = t.pts[i], d = R.geom.dPS(p[0], p[1], a[0], a[1], b[0], b[1]);
+        if (d <= t.w / 2 + 0.25 && (!best || d < best.d)) {
+          var dx = b[0] - a[0], dy = b[1] - a[1], L = dx * dx + dy * dy, k = L ? Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / L)) : 0;
+          best = { d: d, pt: [a[0] + k * dx, a[1] + k * dy], track: t, onSeg: true };
         }
       }
+    });
+    if (best) return best;
+    var g = 0.5;
+    return { pt: [Math.round(p[0] / g) * g, Math.round(p[1] / g) * g] };
+  }
+  // точка на своей цепи: сюда можно закончить дорожку
+  function isTarget(s, cur) {
+    if (s.pad) return s.pad.net === cur.net && s.pad.layers.indexOf(cur.layer) >= 0;
+    if (s.via) return s.via.net === cur.net;
+    if (s.track) return s.track.net === cur.net && s.track.layer === cur.layer && s.track !== cur.from;
+    return false;
+  }
 
-      // Проверка зазора между дорожкой и контактными площадками других цепей
-      allPads.forEach(function (pad) {
-        if (pad.net !== t1.net) {
-          for (var s = 0; s < t1.pts.length - 1; s++) {
-            var d = distToSegment(pad.x, pad.y, t1.pts[s].x, t1.pts[s].y, t1.pts[s + 1].x, t1.pts[s + 1].y);
-            if (d < (lvl.rules.minClearance || 0.3) + t1.w / 2 + 0.4) {
-              drcErrors.push({
-                type: 'clearance',
-                x: pad.x,
-                y: pad.y,
-                msg: 'Нарушение зазора (Clearance) до площадки ' + pad.comp + '.' + pad.id,
-                severity: 'error'
-              });
-            }
-          }
-        }
+  /* =================== действия =================== */
+  function say(t) { if (env) env.status.innerHTML = t; }
+  function click(p) {
+    var l = lv();
+    if (S.tool === 'delete') {
+      var sp = R.split(S.items), hit = null;
+      sp.vias.forEach(function (v) { if (Math.hypot(v.x - p[0], v.y - p[1]) <= 0.6) hit = v; });
+      if (!hit) sp.tracks.forEach(function (t) {
+        for (var i = 1; i < t.pts.length; i++) if (R.geom.dPS(p[0], p[1], t.pts[i - 1][0], t.pts[i - 1][1], t.pts[i][0], t.pts[i][1]) <= t.w / 2 + 0.3) hit = t;
       });
-
-      // 2. Проверка углов 90° (Острые углы и кислотные карманы / Acid Traps)
-      if (lvl.rules.no90Deg) {
-        for (var k = 0; k < t1.pts.length - 2; k++) {
-          var a = t1.pts[k], b = t1.pts[k + 1], c = t1.pts[k + 2];
-          var v1x = a.x - b.x, v1y = a.y - b.y;
-          var v2x = c.x - b.x, v2y = c.y - b.y;
-          var dot = v1x * v2x + v1y * v2y;
-          var l1 = Math.hypot(v1x, v1y), l2 = Math.hypot(v2x, v2y);
-          if (l1 > 0 && l2 > 0) {
-            var cosAngle = dot / (l1 * l2);
-            // Прямой угол 90°: dot ≈ 0 (cos ≈ 0), острый угол <90°: dot > 0
-            if (Math.abs(cosAngle) < 0.15 || cosAngle > 0.15) {
-              drcErrors.push({
-                type: 'angle90',
-                x: b.x,
-                y: b.y,
-                msg: 'Острый или прямой угол (90°)! По правилам DFM используйте сглаживание под 45°',
-                severity: 'warn'
-              });
-            }
-          }
-        }
-      }
-
-      // 3. Проверка ширины силовых проводников (для Level 5)
-      if (lvl.rules.minPowerWidth && (lvl.rules.powerNets || []).indexOf(t1.net) >= 0) {
-        if (t1.w < lvl.rules.minPowerWidth) {
-          drcErrors.push({
-            type: 'width',
-            x: t1.pts[0].x,
-            y: t1.pts[0].y,
-            msg: 'Ширина силовой шины «' + t1.net + '» меньше ' + lvl.rules.minPowerWidth + ' мм!',
-            severity: 'error'
-          });
-        }
-      }
+      if (hit) { S.items.splice(S.items.indexOf(hit), 1); changed(); }
+      return;
     }
-
-    return drcErrors;
+    if (!S.cur) {
+      var s = snap(p);
+      var net = s.pad ? s.pad.net : s.via ? s.via.net : s.track ? s.track.net : null;
+      if (!net) { KM.ui.toast('Начните с площадки', 'Щёлкните по контактной площадке компонента — дорожка всегда идёт от вывода к выводу', '👆'); return; }
+      if (s.pad && s.pad.layers.indexOf(S.layer) < 0) { S.layer = s.pad.layers[0]; KM.ui.toast('Слой F.Cu', 'SMD-площадки есть только на верхнем слое — переключаю', '🔴'); }
+      if (s.track && s.track.layer !== S.layer) S.layer = s.track.layer;
+      S.cur = { net: net, layer: S.layer, w: S.width, pts: [s.pt], from: s.track || null };
+      S.hover = null;
+      render();
+      return;
+    }
+    var c = S.cur, t = snap(p, c.net), last = c.pts[c.pts.length - 1];
+    if (t.pad && t.pad.net !== c.net) { KM.ui.toast('Чужая цепь', 'Площадка ' + t.pad.ref + '.' + t.pad.name + ' принадлежит цепи ' + t.pad.net + ' — это было бы короткое замыкание', '⛔'); return; }
+    if (t.pad && t.pad.layers.indexOf(c.layer) < 0) { KM.ui.toast('Другой слой', 'Площадка ' + t.pad.ref + '.' + t.pad.name + ' есть только на F.Cu. Поставьте переход (V), чтобы вернуться на верхний слой', '🔁'); return; }
+    if (Math.hypot(t.pt[0] - last[0], t.pt[1] - last[1]) < 1e-6) { finish(); return; } // повторный щелчок — завершить
+    R.bend(last[0], last[1], t.pt[0], t.pt[1], S.diag).forEach(function (q) { c.pts.push(q); });
+    if (isTarget(t, c) && c.pts.length > 1) finish(); else render();
+  }
+  function finish() {
+    var c = S.cur;
+    S.cur = null; S.hover = null;
+    if (c && c.pts.length > 1) { S.items.push({ net: c.net, layer: c.layer, w: c.w, pts: c.pts }); changed(); }
+    else render();
+  }
+  function via() {
+    var l = lv();
+    if (l.layers < 2) { KM.ui.toast('Однослойная плата', 'На этом уровне есть только слой F.Cu', 'ℹ️'); return; }
+    if (!S.cur) { S.layer = S.layer === 'F' ? 'B' : 'F'; render(); return; }
+    var c = S.cur, last = c.pts[c.pts.length - 1];
+    if (S.hover && Math.hypot(S.hover[0] - last[0], S.hover[1] - last[1]) > 1e-6) {
+      R.bend(last[0], last[1], S.hover[0], S.hover[1], S.diag).forEach(function (q) { c.pts.push(q); });
+      last = c.pts[c.pts.length - 1];
+    }
+    if (c.pts.length > 1) S.items.push({ net: c.net, layer: c.layer, w: c.w, pts: c.pts });
+    S.items.push({ via: true, net: c.net, x: last[0], y: last[1] });
+    S.layer = c.layer === 'F' ? 'B' : 'F';
+    S.cur = { net: c.net, layer: S.layer, w: c.w, pts: [last.slice()] };
+    changed();
+  }
+  function undo() {
+    if (S.cur) { if (S.cur.pts.length > 1) S.cur.pts.pop(); else S.cur = null; render(); return; }
+    if (S.items.length) { S.items.pop(); changed(); }
+  }
+  function changed() {
+    evaluate();
+    render();
+    var e = S.ev, l = lv();
+    if (e.complete && !S.announced) {
+      S.announced = true;
+      var p = prog(), prev = p[l.id], first = !prev;
+      if (!S.usedSolution) {
+        if (first) KM.game.addXP(l.xp, 'Тренажёр трассировки: «' + l.title + '»');
+        if (!prev || e.stars > prev.stars || (e.stars === prev.stars && e.length < prev.len)) { p[l.id] = { stars: Math.max(e.stars, prev ? prev.stars : 0), len: Math.round(e.length * 10) / 10, t: Date.now() }; KM.store.touch(); }
+        KM.game.activity();
+      }
+      if (S.usedSolution) say('👀 Это эталонное решение. Нажмите «Начать уровень заново», чтобы развести плату самостоятельно.');
+      else result(first);
+    }
+  }
+  function result(first) {
+    var e = S.ev, l = lv(), next = R.levels[S.lv + 1], sp = R.split(S.items);
+    var body = '<div class="rt-result"><div class="rt-big">' + stars(S.usedSolution ? 0 : e.stars) + '</div>' +
+      (S.usedSolution ? '<p>Это эталонное решение. Сбросьте уровень и разведите плату сами, чтобы получить звёзды и опыт.</p>' :
+        '<p><b>Все цепи соединены, DRC без ошибок!</b>' + (first ? ' +' + l.xp + ' XP' : '') + '</p>') +
+      '<ul class="rt-score"><li>' + (e.stars >= 1 ? '✅' : '◻️') + ' Все цепи разведены без нарушений DRC</li>' +
+      '<li>' + (e.stars >= 2 ? '✅' : '◻️') + ' Экономная разводка: длина ' + fmt(e.length) + ' мм (эталон ' + fmt(e.best) + ' мм)' + (l.layers > 1 ? ', переходов ' + sp.vias.length : '') + '</li>' +
+      '<li>' + (e.stars >= 3 ? '✅' : '◻️') + ' Без острых и прямых углов' + (e.warns.length ? ' (замечаний: ' + e.warns.length + ')' : '') + '</li></ul>' +
+      '<div class="row">' + (next ? '<button class="btn primary" data-go="next">Следующий уровень →</button>' : '<a class="btn primary" href="#/gerber">👁️ Посмотреть эту плату в Gerber</a>') + '<button class="btn" data-go="stay">Остаться</button></div></div>';
+    KM.ui.modal(e.stars === 3 && !S.usedSolution ? 'Отлично! Уровень пройден' : 'Уровень пройден', body, function (b, d) {
+      KM.$$('[data-go]', b).forEach(function (x) { x.onclick = function () { d.close(); if (x.dataset.go === 'next') { startLevel(S.lv + 1); full(); } }; });
+    });
   }
 
-  // Проверка соединения всех цепей (Ratsnest)
-  function getUnconnectedNets() {
-    var lvl = getLevel();
-    var nets = {};
-    lvl.components.forEach(function (c) {
-      c.pads.forEach(function (p) {
-        nets[p.net] = nets[p.net] || [];
-        nets[p.net].push(p);
-      });
+  /* =================== отрисовка поля =================== */
+  function padSvg(P, onF) {
+    var col = P.layers.length > 1 ? '#caa63d' : COLORS.F;
+    var sh = P.shape === 'circle' ? '<circle cx="' + P.x + '" cy="' + P.y + '" r="' + P.w / 2 + '" fill="' + col + '"/>'
+      : '<rect x="' + (P.x - P.w / 2) + '" y="' + (P.y - P.h / 2) + '" width="' + P.w + '" height="' + P.h + '" rx="' + Math.min(P.w, P.h) * (P.drill ? 0.1 : 0.25) + '" fill="' + col + '"/>';
+    if (P.drill) sh += '<circle cx="' + P.x + '" cy="' + P.y + '" r="' + P.drill / 2 + '" fill="#07110c"/>';
+    return sh;
+  }
+  function trackSvg(t, cls) {
+    return '<polyline class="' + (cls || '') + '" points="' + t.pts.map(function (q) { return q[0] + ',' + q[1]; }).join(' ') + '" stroke-width="' + t.w + '"/>';
+  }
+  function board() {
+    var l = lv(), e = S.ev, sp = R.split(S.items), pads = R.pads(l), focusNet = S.cur ? S.cur.net : S.focus;
+    var o = '<svg class="rt-svg" viewBox="-1.5 -1.5 ' + (l.w + 3) + ' ' + (l.h + 3) + '" style="width:' + (S.zoom * 100) + '%" role="img" aria-label="Поле трассировки платы ' + KM.esc(l.title) + '">' +
+      '<defs><pattern id="rtGrid" width="1" height="1" patternUnits="userSpaceOnUse"><circle cx="0" cy="0" r=".045" fill="#8fd4b0" opacity=".35"/></pattern></defs>' +
+      '<rect x="0" y="0" width="' + l.w + '" height="' + l.h + '" rx=".8" fill="#0d3121"/>' +
+      '<rect x="0" y="0" width="' + l.w + '" height="' + l.h + '" fill="url(#rtGrid)"/>' +
+      '<rect x="0" y="0" width="' + l.w + '" height="' + l.h + '" rx=".8" fill="none" stroke="#e6d52b" stroke-width=".15"/>';
+    (l.holes || []).forEach(function (h) { o += '<circle cx="' + h.x + '" cy="' + h.y + '" r="' + h.r + '" fill="#07110c" stroke="#9aa39f" stroke-width=".12"/>'; });
+    // слои: неактивный — снизу и приглушён
+    var order = S.layer === 'F' ? ['B', 'F'] : ['F', 'B'];
+    order.forEach(function (L) {
+      var active = L === S.layer;
+      o += '<g class="rt-layer" style="opacity:' + (active ? 1 : 0.45) + '" stroke="' + COLORS[L] + '">';
+      if (L === 'F') pads.forEach(function (P) { if (P.layers.length === 1) o += padSvg(P); });
+      sp.tracks.forEach(function (t) { if (t.layer === L) o += trackSvg(t, focusNet && t.net === focusNet ? 'hl' : ''); });
+      o += '</g>';
     });
-
-    var unconnected = [];
-    Object.keys(nets).forEach(function (netName) {
-      var pads = nets[netName];
-      if (pads.length < 2) return;
-
-      // Проверяем связанность через tracks
-      var netTracks = tracks.filter(function (t) { return t.net === netName; });
-
-      // Граф связей между контактными площадками цепи
-      var connectedCount = 0;
-      for (var i = 0; i < pads.length; i++) {
-        for (var j = i + 1; j < pads.length; j++) {
-          var p1 = pads[i], p2 = pads[j];
-          var linked = netTracks.some(function (t) {
-            var nearP1 = dist(t.pts[0].x, t.pts[0].y, p1.x, p1.y) < 1.0 || dist(t.pts[t.pts.length - 1].x, t.pts[t.pts.length - 1].y, p1.x, p1.y) < 1.0;
-            var nearP2 = dist(t.pts[0].x, t.pts[0].y, p2.x, p2.y) < 1.0 || dist(t.pts[t.pts.length - 1].x, t.pts[t.pts.length - 1].y, p2.x, p2.y) < 1.0;
-            return nearP1 && nearP2;
-          });
-          if (!linked) {
-            unconnected.push({ net: netName, p1: p1, p2: p2 });
-          } else {
-            connectedCount++;
-          }
-        }
+    pads.forEach(function (P) { if (P.layers.length > 1) o += padSvg(P); });
+    sp.vias.forEach(function (v) { o += '<circle cx="' + v.x + '" cy="' + v.y + '" r="' + R.VIA.d / 2 + '" fill="#c7c9c8"/><circle cx="' + v.x + '" cy="' + v.y + '" r="' + R.VIA.drill / 2 + '" fill="#07110c"/>'; });
+    // шелкография
+    o += '<g class="rt-silk">';
+    l.parts.forEach(function (p) {
+      o += '<rect x="' + p.box[0] + '" y="' + p.box[1] + '" width="' + p.box[2] + '" height="' + p.box[3] + '" rx=".3"/>';
+      // у узких вертикальных деталей подпись сбоку, чтобы не наезжать на соседей сверху
+      if (p.box[3] > p.box[2] * 1.4 && p.box[2] < 3) o += '<text class="side" x="' + (p.box[0] + p.box[2] + 0.35) + '" y="' + (p.box[1] + p.box[3] / 2 + 0.35) + '">' + p.ref + ' <tspan>' + KM.esc(p.value) + '</tspan></text>';
+      else o += '<text x="' + (p.box[0] + p.box[2] / 2) + '" y="' + (p.box[1] - 0.45) + '">' + p.ref + ' <tspan>' + KM.esc(p.value) + '</tspan></text>';
+    });
+    o += '</g><g class="rt-netlbl">';
+    pads.forEach(function (P) { var fs = Math.min(0.62, Math.max(P.w, P.h) / Math.max(2.2, P.net.length * 0.62)); o += '<text x="' + P.x + '" y="' + (P.y + fs * 0.35) + '" font-size="' + fs.toFixed(2) + '">' + KM.esc(P.net) + '</text>'; });
+    o += '</g>';
+    // воздушные линии
+    o += '<g class="rt-rats">';
+    e.con.rats.forEach(function (r) { o += '<line x1="' + r.a.x + '" y1="' + r.a.y + '" x2="' + r.b.x + '" y2="' + r.b.y + '" stroke="' + netColor(r.net) + '"' + (focusNet && focusNet !== r.net ? ' opacity=".35"' : '') + '/>'; });
+    o += '</g>';
+    // маркеры DRC
+    o += '<g class="rt-drc">';
+    e.drc.forEach(function (d, i) { o += '<g class="' + d.sev + (S.flash === i ? ' flash' : '') + '"><circle cx="' + d.x + '" cy="' + d.y + '" r=".75"/><text x="' + d.x + '" y="' + (d.y + 0.33) + '">!</text></g>'; });
+    o += '</g><g id="rtPreview">' + preview() + '</g></svg>';
+    return o;
+  }
+  function preview() {
+    var c = S.cur, o = '';
+    if (c) {
+      var pts = c.pts.slice(), last = pts[pts.length - 1];
+      if (S.hover) R.bend(last[0], last[1], S.hover[0], S.hover[1], S.diag).forEach(function (q) { pts.push(q); });
+      if (pts.length > 1) {
+        var d = pts.map(function (q) { return q[0] + ',' + q[1]; }).join(' ');
+        o += '<polyline class="rt-halo" points="' + d + '" stroke-width="' + (c.w + 2 * lv().rules.clearance) + '"/>';
+        o += '<polyline class="rt-live" points="' + d + '" stroke="' + COLORS[c.layer] + '" stroke-width="' + c.w + '"/>';
       }
-    });
-
-    return unconnected;
+      o += '<circle class="rt-end" cx="' + last[0] + '" cy="' + last[1] + '" r="' + Math.max(0.25, c.w / 2) + '"/>';
+    }
+    if (S.hover) o += '<g class="rt-cross"><line x1="' + (S.hover[0] - 0.7) + '" y1="' + S.hover[1] + '" x2="' + (S.hover[0] + 0.7) + '" y2="' + S.hover[1] + '"/><line x1="' + S.hover[0] + '" y1="' + (S.hover[1] - 0.7) + '" x2="' + S.hover[0] + '" y2="' + (S.hover[1] + 0.7) + '"/></g>';
+    return o;
   }
 
-  /* =========================================================
-     Отрисовка игрового поля на Canvas
-     ========================================================= */
-  function renderCanvas(canvas) {
-    if (!canvas) return;
-    var ctx = canvas.getContext('2d');
-    var w = canvas.width, h = canvas.height;
-    ctx.clearRect(0, 0, w, h);
-
-    var lvl = getLevel();
-    var bw = lvl.boardW, bh = lvl.boardH;
-
-    // Центрирование платы
-    var ox = (w - bw * scale) / 2 + panX;
-    var oy = (h - bh * scale) / 2 + panY;
-
-    // 1. Тёмный фон рабочей зоны платы KiCad
-    ctx.fillStyle = '#0b1411';
-    ctx.fillRect(0, 0, w, h);
-
-    // 2. Сетка (Grid dots)
-    ctx.fillStyle = '#1c2d26';
-    var stepPx = gridStep * scale;
-    if (stepPx >= 6) {
-      for (var gx = ox % stepPx; gx < w; gx += stepPx) {
-        for (var gy = oy % stepPx; gy < h; gy += stepPx) {
-          ctx.fillRect(gx - 0.5, gy - 0.5, 1.2, 1.2);
-        }
-      }
-    }
-
-    // 3. Контур платы (Edge.Cuts)
-    ctx.save();
-    ctx.translate(ox, oy);
-    ctx.scale(scale, scale);
-
-    // Подложка платы
-    ctx.fillStyle = '#0e241c';
-    ctx.fillRect(0, 0, bw, bh);
-    ctx.strokeStyle = '#d0d200'; // Edge.Cuts желтый
-    ctx.lineWidth = 0.2;
-    ctx.strokeRect(0, 0, bw, bh);
-
-    // 4. Тонкие линии связей (Ratsnest / Паутинка)
-    var airwires = getUnconnectedNets();
-    ctx.save();
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
-    ctx.lineWidth = 0.15;
-    ctx.setLineDash([0.4, 0.4]);
-    airwires.forEach(function (aw) {
-      ctx.beginPath();
-      ctx.moveTo(aw.p1.x, aw.p1.y);
-      ctx.lineTo(aw.p2.x, aw.p2.y);
-      ctx.stroke();
-    });
-    ctx.restore();
-
-    // 5. Отрисовка дорожек нижнего слоя B.Cu (Синий)
-    ctx.save();
-    ctx.strokeStyle = '#3878d6';
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    tracks.filter(function (t) { return t.layer === 'bcu'; }).forEach(function (t) {
-      ctx.lineWidth = t.w;
-      ctx.beginPath();
-      ctx.moveTo(t.pts[0].x, t.pts[0].y);
-      for (var i = 1; i < t.pts.length; i++) ctx.lineTo(t.pts[i].x, t.pts[i].y);
-      ctx.stroke();
-    });
-    ctx.restore();
-
-    // 6. Отрисовка дорожек верхнего слоя F.Cu (Красный)
-    ctx.save();
-    ctx.strokeStyle = '#d63838';
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    tracks.filter(function (t) { return t.layer === 'fcu'; }).forEach(function (t) {
-      ctx.lineWidth = t.w;
-      ctx.beginPath();
-      ctx.moveTo(t.pts[0].x, t.pts[0].y);
-      for (var i = 1; i < t.pts.length; i++) ctx.lineTo(t.pts[i].x, t.pts[i].y);
-      ctx.stroke();
-    });
-    ctx.restore();
-
-    // 7. Текущая незавершённая трассировка
-    if (routingActive && currentTrack.length > 0) {
-      ctx.save();
-      ctx.strokeStyle = activeLayer === 'fcu' ? '#ff5050' : '#50a0ff';
-      ctx.lineWidth = trackWidth;
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-      ctx.beginPath();
-      ctx.moveTo(currentTrack[0].x, currentTrack[0].y);
-      for (var ct = 1; ct < currentTrack.length; ct++) ctx.lineTo(currentTrack[ct].x, currentTrack[ct].y);
-      ctx.stroke();
-      ctx.restore();
-    }
-
-    // 8. Переходные отверстия (Vias)
-    vias.forEach(function (v) {
-      // Медный поясок
-      ctx.fillStyle = '#b8860b';
-      ctx.beginPath();
-      ctx.arc(v.x, v.y, (v.d || 0.8) / 2, 0, Math.PI * 2);
-      ctx.fill();
-      // Отверстие
-      ctx.fillStyle = '#0b1411';
-      ctx.beginPath();
-      ctx.arc(v.x, v.y, (v.drill || 0.4) / 2, 0, Math.PI * 2);
-      ctx.fill();
-    });
-
-    // 9. Отрисовка компонентов и контактных площадок
-    lvl.components.forEach(function (comp) {
-      // Шелкография корпуса
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
-      ctx.lineWidth = 0.15;
-      ctx.font = '1.0px monospace';
-      ctx.fillStyle = '#ffffff';
-      ctx.textAlign = 'center';
-      ctx.fillText(comp.id, comp.x, comp.y - 3.0);
-
-      // Контактные площадки
-      comp.pads.forEach(function (p) {
-        ctx.fillStyle = '#d4a017'; // золото площадки
-        ctx.fillRect(p.x - 0.7, p.y - 0.7, 1.4, 1.4);
-        ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = 0.1;
-        ctx.strokeRect(p.x - 0.7, p.y - 0.7, 1.4, 1.4);
-
-        // Имя цепи площадки
-        ctx.font = '0.7px sans-serif';
-        ctx.fillStyle = '#111111';
-        ctx.textAlign = 'center';
-        ctx.fillText(p.net, p.x, p.y + 0.25);
-      });
-    });
-
-    // 10. Маркеры ошибок DRC
-    drcErrors.forEach(function (err) {
-      ctx.save();
-      ctx.fillStyle = err.severity === 'error' ? '#ff3b30' : '#ff9500';
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 0.15;
-      ctx.beginPath();
-      ctx.arc(err.x, err.y, 0.9, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
-
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 1.0px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText('!', err.x, err.y + 0.35);
-      ctx.restore();
-    });
-
-    ctx.restore();
+  /* =================== панели =================== */
+  function levelsHtml() {
+    var p = prog();
+    return R.levels.map(function (l, i) {
+      var r = p[l.id];
+      return '<button class="rt-lvl" data-lv="' + i + '" aria-pressed="' + (i === S.lv) + '"><span class="rt-ico" aria-hidden="true">' + l.icon + '</span><span class="rt-lt"><b>' + (i + 1) + '. ' + KM.esc(l.title) + '</b><span>' + (l.layers > 1 ? '2 слоя' : '1 слой') + ' · +' + l.xp + ' XP</span></span>' + (r ? stars(r.stars) : '') + '</button>';
+    }).join('');
+  }
+  function sideHtml() {
+    var l = lv(), e = S.ev, nets = R.nets(l), sp = R.split(S.items);
+    var rules = ['зазор ' + fmt(l.rules.clearance) + ' мм', 'до края ' + fmt(l.rules.edge) + ' мм', l.layers > 1 ? 'слои F.Cu + B.Cu' : 'только F.Cu'];
+    if (l.rules.minWidth) rules.push(Object.keys(l.rules.minWidth).join(', ') + ' ≥ ' + fmt(l.rules.minWidth[Object.keys(l.rules.minWidth)[0]]) + ' мм');
+    return '<section class="card"><h3>' + l.icon + ' ' + (S.lv + 1) + '. ' + KM.esc(l.title) + '</h3><p class="small">' + KM.esc(l.goal) + '</p>' +
+      '<div class="chips">' + rules.map(function (r) { return '<span class="tag">' + r + '</span>'; }).join('') + '</div>' +
+      '<details class="mt-s"><summary class="small">💡 Подсказка</summary><p class="small muted mb0">' + KM.esc(l.hint) + '</p></details></section>' +
+      '<section class="card"><h3>🔌 Цепи <span class="tiny muted">' + e.done.length + ' из ' + e.nets.length + '</span></h3><div class="rt-nets">' +
+        Object.keys(nets).sort().map(function (k) {
+          var done = e.con.nets[k].done;
+          return '<button class="rt-net' + (done ? ' done' : '') + '" data-net="' + KM.esc(k) + '" aria-pressed="' + (S.focus === k) + '"><span class="rt-dot" style="background:' + netColor(k) + '"></span>' + KM.esc(k) + '<span>' + (done ? '✅' : nets[k].length + ' выв.') + '</span></button>';
+        }).join('') + '</div>' +
+        '<div class="rt-meter"><span style="width:' + (e.done.length / e.nets.length * 100) + '%"></span></div>' +
+        '<p class="tiny mb0">Длина дорожек: ' + fmt(e.length) + ' мм' + (l.layers > 1 ? ' · переходов: ' + sp.vias.length : '') + '</p></section>' +
+      '<section class="card"><h3>🛡️ DRC <span class="tiny ' + (e.errors.length ? 'rt-bad' : 'rt-ok') + '">' + (e.errors.length ? 'ошибок: ' + e.errors.length : 'ошибок нет') + '</span></h3>' +
+        (e.drc.length ? '<ul class="rt-drclist">' + e.drc.map(function (d, i) { return '<li class="' + d.sev + '"><button data-drc="' + i + '">' + (d.sev === 'error' ? '⛔ ' : '⚠️ ') + KM.esc(d.msg) + '</button></li>'; }).join('') + '</ul>'
+          : '<p class="small muted mb0">' + (S.items.length ? 'Нарушений нет — так держать.' : 'Проверка идёт автоматически после каждой дорожки.') + '</p>') + '</section>' +
+      '<section class="card"><h3>🏆 Уровни</h3><div class="rt-lvls">' + levelsHtml() + '</div></section>';
+  }
+  function toolbarHtml() {
+    var l = lv(), c = S.cur;
+    return '<div class="rt-tb">' +
+      '<div class="rt-seg" role="group" aria-label="Слой"><button data-layer="F" aria-pressed="' + (S.layer === 'F') + '"><i style="background:' + COLORS.F + '"></i>F.Cu</button>' +
+        '<button data-layer="B" aria-pressed="' + (S.layer === 'B') + '"' + (l.layers < 2 ? ' disabled title="На этом уровне один слой"' : '') + '><i style="background:' + COLORS.B + '"></i>B.Cu</button></div>' +
+      '<div class="rt-seg" role="group" aria-label="Ширина дорожки">' + l.rules.widths.map(function (w) { return '<button data-w="' + w + '" aria-pressed="' + ((c ? c.w : S.width) === w) + '">' + fmt(w) + '</button>'; }).join('') + '</div>' +
+      '<button class="btn sm" data-act="diag" aria-pressed="' + S.diag + '" title="Порядок изломов: сначала прямо или сначала под 45° (клавиша /)">' + (S.diag ? '⟋ 45° сначала' : '⟶ прямо сначала') + '</button>' +
+      (l.layers > 1 ? '<button class="btn sm" data-act="via" title="Переходное отверстие и смена слоя (V)">⦿ Переход</button>' : '') +
+      '<button class="btn sm" data-act="undo" title="Отменить (Ctrl+Z / Backspace)">↶ Отменить</button>' +
+      '<button class="btn sm" data-act="del" aria-pressed="' + (S.tool === 'delete') + '" title="Щёлкните по дорожке, чтобы удалить">🗑 Удалить</button>' +
+      (c ? '<button class="btn sm primary" data-act="finish">✓ Готово</button><button class="btn sm" data-act="cancel">✕ Отмена</button>' : '') +
+      '<span class="rt-sp"></span><button class="btn sm" data-act="zout" aria-label="Отдалить">−</button><button class="btn sm" data-act="zin" aria-label="Приблизить">+</button>' +
+    '</div>';
+  }
+  function statusText() {
+    var c = S.cur;
+    if (S.tool === 'delete') return '🗑 Режим удаления: щёлкните по дорожке или переходу. Нажмите «Удалить» ещё раз, чтобы вернуться к трассировке.';
+    if (c) return 'Цепь <b style="color:' + netColor(c.net) + '">' + KM.esc(c.net) + '</b> · слой <b>' + c.layer + '.Cu</b> · ' + fmt(c.w) + ' мм — щелчок ставит излом, щелчок по площадке цепи завершает, <kbd>Esc</kbd> — отмена' + (lv().layers > 1 ? ', <kbd>V</kbd> — переход' : '');
+    if (S.ev.complete) return '🎉 Плата разведена! Выберите следующий уровень или улучшите результат.';
+    return 'Щёлкните по площадке, чтобы начать дорожку. Пунктир показывает, что осталось соединить.';
   }
 
-  /* =========================================================
-     Представление KM.views.routing
-     ========================================================= */
+  function render() {
+    if (!env) return;
+    env.field.innerHTML = board();
+    env.tb.innerHTML = toolbarHtml();
+    env.side.innerHTML = sideHtml();
+    say(statusText());
+  }
+  function full() { render(); if (env) env.field.scrollTo(0, 0); }
+  function updatePreview() {
+    var g = env && env.field.querySelector('#rtPreview');
+    if (g) g.innerHTML = preview();
+  }
+
   KM.views.routing = {
     render: function () {
-      var lvl = getLevel();
-      var airCount = getUnconnectedNets().length;
-      var drcCount = drcErrors.filter(function (e) { return e.severity === 'error'; }).length;
-      var isCompleted = airCount === 0 && drcCount === 0;
-
-      return '<div class="page full-page routing-view">' +
-        '<div class="routing-topbar">' +
-          '<div class="rt-title-block">' +
-            '<h1>🕹️ Тренажёр трассировки плат (PCB Routing Game)</h1>' +
-            '<p class="muted">Разводите дорожки между компонентами по правилам KiCad: избегайте прямых углов 90°, используйте слои F.Cu / B.Cu и соблюдайте DRC.</p>' +
-          '</div>' +
-          '<div class="rt-stats">' +
-            '<span class="badge ' + (airCount === 0 ? 'badge-ok' : 'badge-warn') + '">Цепей осталось: <b>' + airCount + '</b></span>' +
-            '<span class="badge ' + (drcCount === 0 ? 'badge-ok' : 'badge-danger') + '">Ошибок DRC: <b>' + drcCount + '</b></span>' +
-            (isCompleted ? '<button type="button" class="btn btn-primary" id="btnNextLevel">🎉 Следующий уровень!</button>' : '') +
-          '</div>' +
-        '</div>' +
-
-        '<div class="routing-layout">' +
-          // Боковая панель
-          '<aside class="routing-sidebar">' +
-            '<div class="card p-3">' +
-              '<h3>🏆 Уровни сложности</h3>' +
-              '<div class="level-list">' +
-                LEVELS.map(function (l) {
-                  var active = l.id === currentLevelId;
-                  return '<button type="button" class="level-card-btn ' + (active ? 'active' : '') + '" data-level="' + l.id + '">' +
-                    '<b>' + KM.esc(l.title) + '</b>' +
-                    '<span class="tiny muted">' + KM.esc(l.desc) + '</span>' +
-                    '<span class="badge xp-badge">⚡ +' + l.xp + ' XP</span>' +
-                  '</button>';
-                }).join('') +
-              '</div>' +
-            '</div>' +
-
-            '<div class="card p-3 mt-3">' +
-              '<h3>🛠️ Инструменты разводки</h3>' +
-              '<label class="field-label mt-2">Текущий слой дорожки:</label>' +
-              '<div class="segmented-control">' +
-                '<button type="button" class="sc-btn ' + (activeLayer === 'fcu' ? 'active' : '') + '" data-layer="fcu" style="color:#ff6b6b;">🟥 F.Cu (Верхний)</button>' +
-                '<button type="button" class="sc-btn ' + (activeLayer === 'bcu' ? 'active' : '') + '" data-layer="bcu" style="color:#6ba4ff;" ' + (!lvl.rules.allowBcu ? 'disabled title="Заблокировано на этом уровне"' : '') + '>🟦 B.Cu (Нижний)</button>' +
-              '</div>' +
-
-              '<label class="field-label mt-3">Ширина дорожки проводника:</label>' +
-              '<div class="segmented-control">' +
-                '<button type="button" class="sc-btn ' + (trackWidth === 0.25 ? 'active' : '') + '" data-width="0.25">0.25 мм (Сигнал)</button>' +
-                '<button type="button" class="sc-btn ' + (trackWidth === 0.5 ? 'active' : '') + '" data-width="0.5">0.5 мм (Стандарт)</button>' +
-                '<button type="button" class="sc-btn ' + (trackWidth === 1.0 ? 'active' : '') + '" data-width="1.0">1.0 мм (Питание)</button>' +
-              '</div>' +
-
-              '<div class="row gap-2 mt-4">' +
-                '<button type="button" class="btn btn-outline" id="btnPlaceVia" ' + (!lvl.rules.allowBcu ? 'disabled' : '') + ' title="Поставить переходное отверстие (Клавиша V)">🔘 Via (V)</button>' +
-                '<button type="button" class="btn btn-outline" id="btnUndoTrack">↩️ Отмена</button>' +
-                '<button type="button" class="btn btn-ghost" id="btnClearBoard">🗑️ Очистить</button>' +
-              '</div>' +
-            '</div>' +
-
-            '<div class="card p-3 mt-3 drc-card">' +
-              '<h3>🛡️ Автопроверка DRC</h3>' +
-              '<div class="drc-list" id="drcList">' +
-                (drcErrors.length === 0 ? '<div class="text-success small">✅ Нет нарушений правил проектирования!</div>' :
-                  drcErrors.map(function (e) {
-                    return '<div class="drc-msg-item ' + e.severity + '">⚠️ ' + KM.esc(e.msg) + '</div>';
-                  }).join('')) +
-              '</div>' +
-            '</div>' +
-          '</aside>' +
-
-          // Интерактивный холст
-          '<main class="routing-canvas-wrap">' +
-            '<div class="canvas-hints-bar">' +
-              '<span>💡 <b>Управление:</b> Клик по площадке — начать дорожку · Клик в поле — зафиксировать угол 45° · Двойной клик / повторный клик по целевой площадке — завершить · <b>Клавиша V</b> — поставить Via и сменить слой</span>' +
-            '</div>' +
-            '<div class="routing-canvas-box" id="routingCanvasBox">' +
-              '<canvas id="routingCanvas" class="routing-canvas"></canvas>' +
-            '</div>' +
-          '</main>' +
-        '</div>' +
-      '</div>';
+      return '<div class="page rt-page"><div class="page-head"><div class="eyebrow">Инструменты</div><h1>Тренажёр трассировки</h1>' +
+        '<p>Разводите печатные платы по правилам KiCad: дорожки под 45°, зазоры, силовые цепи, два слоя и переходные отверстия. Проверка DRC идёт после каждого действия.</p></div>' +
+        '<div class="rt-wrap"><div class="rt-main"><div id="rtTb"></div><div class="rt-field" id="rtField"></div><p class="rt-status" id="rtStatus" aria-live="polite"></p>' +
+          '<div class="row mt-s"><button class="btn sm ghost" id="rtReset">⟲ Начать уровень заново</button><button class="btn sm ghost" id="rtSol">👀 Показать решение</button></div>' +
+          '<details class="mt-s"><summary class="small">⌨️ Управление</summary><p class="small muted mb0">Мышь: щелчок — начать дорожку или поставить излом, двойной щелчок или щелчок по площадке — завершить. Клавиши: <kbd>Esc</kbd> — отменить дорожку, <kbd>Backspace</kbd> или <kbd>Ctrl</kbd>+<kbd>Z</kbd> — шаг назад, <kbd>V</kbd> — переходное отверстие, <kbd>/</kbd> — порядок изломов, <kbd>Enter</kbd> — завершить. На телефоне — касания и кнопки над полем; поле можно прокручивать и увеличивать кнопкой «+».</p></details>' +
+        '</div><aside class="rt-side" id="rtSide"></aside></div></div>';
     },
+    mount: function (root) {
+      env = { root: root, field: KM.$('#rtField', root), tb: KM.$('#rtTb', root), side: KM.$('#rtSide', root), status: KM.$('#rtStatus', root) };
+      if (!S.ev) {
+        var p = prog(), first = R.levels.findIndex(function (l) { return !p[l.id]; });
+        startLevel(first < 0 ? 0 : first);
+      } else S.zoom = Math.max(S.zoom, autoZoom());
+      render();
 
-    mount: function (el) {
-      var canvas = el.querySelector('#routingCanvas');
-      var box = el.querySelector('#routingCanvasBox');
-
-      function resize() {
-        if (!box || !canvas) return;
-        var rect = box.getBoundingClientRect();
-        var dpr = window.devicePixelRatio || 1;
-        canvas.width = rect.width * dpr;
-        canvas.height = rect.height * dpr;
-        canvas.style.width = rect.width + 'px';
-        canvas.style.height = rect.height + 'px';
-        var ctx = canvas.getContext('2d');
-        ctx.scale(dpr, dpr);
-        renderCanvas(canvas);
+      function toMM(e) {
+        var svg = env.field.querySelector('svg'), pt = svg.createSVGPoint();
+        pt.x = e.clientX; pt.y = e.clientY;
+        var q = pt.matrixTransform(svg.getScreenCTM().inverse());
+        return [q.x, q.y];
       }
-      window.addEventListener('resize', resize);
-      setTimeout(resize, 40);
-
-      // Смена уровня
-      el.querySelectorAll('.level-card-btn').forEach(function (btn) {
-        btn.onclick = function () {
-          currentLevelId = this.dataset.level;
-          tracks = [];
-          vias = [];
-          routingActive = false;
-          currentTrack = [];
-          drcErrors = [];
-          runDRC();
-          KM.router.go('/routing');
-        };
+      var down = null;
+      env.field.addEventListener('pointerdown', function (e) { if (e.button === 0 || e.pointerType !== 'mouse') down = [e.clientX, e.clientY, e.pointerType]; });
+      env.field.addEventListener('pointerup', function (e) {
+        if (!down) return;
+        var moved = Math.hypot(e.clientX - down[0], e.clientY - down[1]);
+        down = null;
+        if (moved < 8 && e.target.closest('svg')) click(toMM(e));
       });
-
-      // Смена слоя (F.Cu / B.Cu)
-      el.querySelectorAll('[data-layer]').forEach(function (btn) {
-        btn.onclick = function () {
-          if (this.disabled) return;
-          activeLayer = this.dataset.layer;
-          el.querySelectorAll('[data-layer]').forEach(function (b) { b.classList.toggle('active', b === btn); });
-          renderCanvas(canvas);
-        };
+      env.field.addEventListener('pointercancel', function () { down = null; });
+      env.field.addEventListener('pointermove', function (e) {
+        if (e.pointerType !== 'mouse' || !e.target.closest('svg')) return;
+        var s = snap(toMM(e), S.cur && S.cur.net);
+        S.hover = s.pt;
+        if (!env.hoverRaf) env.hoverRaf = requestAnimationFrame(function () { env.hoverRaf = 0; updatePreview(); });
       });
+      env.field.addEventListener('pointerleave', function () { S.hover = null; updatePreview(); });
+      env.field.addEventListener('dblclick', function (e) { e.preventDefault(); if (S.cur) finish(); });
 
-      // Смена ширины проводника
-      el.querySelectorAll('[data-width]').forEach(function (btn) {
-        btn.onclick = function () {
-          trackWidth = parseFloat(this.dataset.width);
-          el.querySelectorAll('[data-width]').forEach(function (b) { b.classList.toggle('active', b === btn); });
-        };
+      env.tb.addEventListener('click', function (e) {
+        var b = e.target.closest('button'); if (!b || b.disabled) return;
+        if (b.dataset.layer) { if (S.cur && b.dataset.layer !== S.cur.layer) via(); else { S.layer = b.dataset.layer; render(); } return; }
+        if (b.dataset.w) { S.width = parseFloat(b.dataset.w); if (S.cur) S.cur.w = S.width; render(); return; }
+        var a = b.dataset.act;
+        if (a === 'diag') { S.diag = !S.diag; render(); }
+        else if (a === 'via') via();
+        else if (a === 'undo') undo();
+        else if (a === 'del') { S.tool = S.tool === 'delete' ? 'route' : 'delete'; S.cur = null; env.field.classList.toggle('deleting', S.tool === 'delete'); render(); }
+        else if (a === 'finish') finish();
+        else if (a === 'cancel') { S.cur = null; render(); }
+        else if (a === 'zin' || a === 'zout') { S.zoom = Math.max(1, Math.min(4, S.zoom * (a === 'zin' ? 1.5 : 1 / 1.5))); if (S.zoom < 1.05) S.zoom = 1; render(); }
       });
-
-      // Кнопка Via
-      function dropVia() {
-        var lvl = getLevel();
-        if (!lvl.rules.allowBcu) {
-          KM.ui.toast('Ограничение уровня', 'Этот уровень рассчитан на 1 слой!', '⚠️');
-          return;
+      env.side.addEventListener('click', function (e) {
+        var b = e.target.closest('button'); if (!b) return;
+        if (b.dataset.lv != null) { startLevel(+b.dataset.lv); full(); }
+        else if (b.dataset.net) { S.focus = S.focus === b.dataset.net ? null : b.dataset.net; render(); }
+        else if (b.dataset.drc != null) {
+          S.flash = +b.dataset.drc; render();
+          var m = env.field.querySelector('.rt-drc .flash'); if (m && m.scrollIntoView) m.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+          setTimeout(function () { S.flash = null; if (env) render(); }, 1600);
         }
-        if (routingActive && currentTrack.length > 0) {
-          var lastPt = currentTrack[currentTrack.length - 1];
-          vias.push({ x: lastPt.x, y: lastPt.y, net: currentNet, d: 0.8, drill: 0.4 });
-          activeLayer = activeLayer === 'fcu' ? 'bcu' : 'fcu';
-          el.querySelectorAll('[data-layer]').forEach(function (b) { b.classList.toggle('active', b.dataset.layer === activeLayer); });
-          KM.ui.toast('Переходное отверстие', 'Установлен Via на слой ' + (activeLayer === 'fcu' ? 'F.Cu (Верх)' : 'B.Cu (Низ)'), '🔘');
-          renderCanvas(canvas);
-        }
-      }
-
-      var btnVia = el.querySelector('#btnPlaceVia');
-      if (btnVia) btnVia.onclick = dropVia;
-
-      // Горячая клавиша 'V'
-      var keyHandler = function (e) {
-        if (e.key === 'v' || e.key === 'V' || e.key === 'м' || e.key === 'М') {
-          dropVia();
-        }
+      });
+      KM.$('#rtReset', root).onclick = function () {
+        if (!S.confirmReset && S.items.length) { S.confirmReset = true; this.textContent = '⟲ Точно сбросить? Нажмите ещё раз'; return; }
+        startLevel(S.lv); this.textContent = '⟲ Начать уровень заново'; render();
       };
-      window.addEventListener('keydown', keyHandler);
-
-      // Кнопка отмены последнего сегмента
-      var btnUndo = el.querySelector('#btnUndoTrack');
-      if (btnUndo) {
-        btnUndo.onclick = function () {
-          if (routingActive) {
-            currentTrack.pop();
-            if (currentTrack.length === 0) routingActive = false;
-          } else if (tracks.length > 0) {
-            tracks.pop();
-          }
-          runDRC();
-          renderCanvas(canvas);
-        };
-      }
-
-      // Очистка платы
-      var btnClear = el.querySelector('#btnClearBoard');
-      if (btnClear) {
-        btnClear.onclick = function () {
-          tracks = [];
-          vias = [];
-          routingActive = false;
-          currentTrack = [];
-          runDRC();
-          renderCanvas(canvas);
-        };
-      }
-
-      // Интерактивное кликание и трассировка
-      canvas.addEventListener('mousedown', function (e) {
-        var rect = canvas.getBoundingClientRect();
-        var mx = e.clientX - rect.left;
-        var my = e.clientY - rect.top;
-        var lvl = getLevel();
-        var bw = lvl.boardW, bh = lvl.boardH;
-        var ox = (rect.width - bw * scale) / 2 + panX;
-        var oy = (rect.height - bh * scale) / 2 + panY;
-
-        var boardX = snapToGrid((mx - ox) / scale, gridStep);
-        var boardY = snapToGrid((my - oy) / scale, gridStep);
-
-        // Поиск площадки под курсором
-        var hitPad = null;
-        lvl.components.forEach(function (c) {
-          c.pads.forEach(function (p) {
-            if (dist(p.x, p.y, boardX, boardY) <= 1.2) hitPad = p;
-          });
-        });
-
-        if (!routingActive) {
-          // Начало трассировки от площадки
-          if (hitPad) {
-            routingActive = true;
-            currentNet = hitPad.net;
-            currentTrack = [{ x: hitPad.x, y: hitPad.y, layer: activeLayer, w: trackWidth }];
-            renderCanvas(canvas);
-          }
-        } else {
-          // Добавление точки или завершение дорожки
-          var last = currentTrack[currentTrack.length - 1];
-          var snapped = snap45(last.x, last.y, boardX, boardY);
-
-          if (hitPad) {
-            // Клик по целевой площадке
-            if (hitPad.net === currentNet) {
-              currentTrack.push({ x: hitPad.x, y: hitPad.y, layer: activeLayer, w: trackWidth });
-              tracks.push({ net: currentNet, layer: activeLayer, w: trackWidth, pts: currentTrack.slice() });
-              routingActive = false;
-              currentTrack = [];
-              KM.ui.toast('Цепь соединена!', 'Дорожка цепи «' + currentNet + '» успешно проложена', '✅');
-
-              runDRC();
-              checkWinCondition();
-            } else {
-              KM.ui.toast('Замыкание (КЗ)!', 'Нельзя соединять разные цепи («' + currentNet + '» и «' + hitPad.net + '»)', '❌');
-            }
-          } else {
-            // Обычная точка излома дорожки
-            currentTrack.push({ x: snapped.x, y: snapped.y, layer: activeLayer, w: trackWidth });
-          }
-          runDRC();
-          renderCanvas(canvas);
-        }
-      });
-
-      canvas.addEventListener('mousemove', function (e) {
-        if (!routingActive || currentTrack.length === 0) return;
-        var rect = canvas.getBoundingClientRect();
-        var mx = e.clientX - rect.left;
-        var my = e.clientY - rect.top;
-        var lvl = getLevel();
-        var bw = lvl.boardW, bh = lvl.boardH;
-        var ox = (rect.width - bw * scale) / 2 + panX;
-        var oy = (rect.height - bh * scale) / 2 + panY;
-
-        var boardX = snapToGrid((mx - ox) / scale, gridStep);
-        var boardY = snapToGrid((my - oy) / scale, gridStep);
-        var last = currentTrack[currentTrack.length - 1];
-        var snapped = snap45(last.x, last.y, boardX, boardY);
-
-        renderCanvas(canvas);
-
-        // Отрисовка превью тянущейся дорожки
-        var ctx = canvas.getContext('2d');
-        ctx.save();
-        ctx.translate(ox, oy);
-        ctx.scale(scale, scale);
-        ctx.strokeStyle = activeLayer === 'fcu' ? 'rgba(255, 80, 80, 0.7)' : 'rgba(80, 160, 255, 0.7)';
-        ctx.lineWidth = trackWidth;
-        ctx.lineCap = 'round';
-        ctx.beginPath();
-        ctx.moveTo(last.x, last.y);
-        ctx.lineTo(snapped.x, snapped.y);
-        ctx.stroke();
-        ctx.restore();
-      });
-
-      function checkWinCondition() {
-        var air = getUnconnectedNets();
-        var drc = runDRC().filter(function (e) { return e.severity === 'error'; });
-        if (air.length === 0 && drc.length === 0) {
-          var lvl = getLevel();
-          KM.game.addXP(lvl.xp, 'Тренажёр трассировки: пройден ' + lvl.title);
-          KM.ui.modal(
-            '🎉 Уровень пройден!',
-            '<div class="text-center p-3">' +
-              '<div style="font-size: 3rem; margin-bottom: 8px;">⭐⭐⭐</div>' +
-              '<h3>Идеальная трассировка!</h3>' +
-              '<p>Все цепи платы «' + KM.esc(lvl.title) + '» соединены, коротких замыканий и нарушений DRC нет.</p>' +
-              '<div class="badge xp-badge mb-3">Получено +' + lvl.xp + ' XP</div>' +
-              '<div class="row gap-2 justify-center mt-3">' +
-                '<button type="button" class="btn btn-primary" id="btnModalNext">Перейти к следующему уровню</button>' +
-              '</div>' +
-            '</div>',
-            function (modalEl, d) {
-              var btnNext = modalEl.querySelector('#btnModalNext');
-              if (btnNext) {
-                btnNext.onclick = function () {
-                  d.close();
-                  var idx = LEVELS.findIndex(function (l) { return l.id === currentLevelId; });
-                  if (idx >= 0 && idx < LEVELS.length - 1) {
-                    currentLevelId = LEVELS[idx + 1].id;
-                    tracks = [];
-                    vias = [];
-                    routingActive = false;
-                    drcErrors = [];
-                    KM.router.go('/routing');
-                  }
-                };
-              }
-            }
-          );
-        }
-      }
-
-      var btnNext = el.querySelector('#btnNextLevel');
-      if (btnNext) btnNext.onclick = checkWinCondition;
+      KM.$('#rtSol', root).onclick = function () {
+        S.items = JSON.parse(JSON.stringify(lv().solution)); S.cur = null; S.usedSolution = true; S.announced = false;
+        KM.ui.toast('Эталонное решение', 'Изучите его, затем начните уровень заново — за самостоятельную разводку дают опыт и звёзды', '👀');
+        changed();
+      };
+      env.key = function (e) {
+        if (!env || /INPUT|TEXTAREA|SELECT/.test(document.activeElement && document.activeElement.tagName) || KM.$('#modal').open) return;
+        var handled = true;
+        if (e.key === 'Escape' && S.cur) { S.cur = null; render(); }
+        else if ((e.key === 'Backspace' && S.cur) || (e.key.toLowerCase() === 'z' && (e.ctrlKey || e.metaKey))) undo();
+        else if (/^[vVмМ]$/.test(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey) via();
+        else if (e.key === '/' && S.cur) { S.diag = !S.diag; render(); }
+        else if (e.key === 'Enter' && S.cur) finish();
+        else handled = false;
+        if (handled) { e.preventDefault(); e.stopPropagation(); }
+      };
+      document.addEventListener('keydown', env.key, true);
     },
-
     unmount: function () {
-      routingActive = false;
-      currentTrack = [];
+      if (!env) return;
+      document.removeEventListener('keydown', env.key, true);
+      if (env.hoverRaf) cancelAnimationFrame(env.hoverRaf);
+      S.cur = null; S.hover = null;
+      env = null;
     }
   };
 })();

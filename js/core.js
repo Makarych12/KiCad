@@ -118,6 +118,7 @@ KM.store = (function () {
       viewed: {},           // компоненты/шаблоны/статьи
       downloads: 0,
       aiQuestions: 0,
+      routing: {},          // тренажёр трассировки: id уровня → {stars, len, t}
       settings: { theme: 'auto', accent: 'green', lang: 'ru', fontScale: 1, reduceMotion: false, contrast: false, reminders: false, reminderHour: 19, region: 'eu' }
     };
   };

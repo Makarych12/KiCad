@@ -52,6 +52,8 @@ npm run test:api                 # тест всех эндпоинтов: с и
 | 4. Компоненты | `data/components.js` | 1182 позиции: 174 описаны вручную, остальное — ряды E24/E6, стабилитроны, светодиоды, разъёмы |
 | 5. Шаблоны | `tools/circuits.py` → `kicad/t-*` | 26 проектов KiCad: .kicad_pro/.kicad_sch, PDF, BOM, SVG-превью, netlist |
 | 6. Симулятор | `js/sim.js`, `js/views/sim.js` | Метод узловых потенциалов, Ньютон для диодов и светодиодов, переходные процессы для конденсаторов |
+| Gerber и 3D | `js/gerber-parse.js`, `js/views/gerber.js` | Разбор Gerber RS-274X/X2 (макросы, дуги, полигоны), Excellon и ZIP в браузере; виды «Верх», «Низ», «Слои», 3D; линейка; проверка перед заказом. Демо-платы — настоящие Gerber из KiCad (`tools/pcbgen.py`) |
+| Тренажёр трассировки | `js/routing-engine.js`, `js/views/routing.js` | 5 уровней: дорожки под 45°, зазоры, силовые цепи, два слоя и переходы, DRC и проверка связности, звёзды и опыт |
 | 7. Тесты | в уроках | Очки, медали, достижения, таблица лидеров (через сервер) |
 | 8. История | `data/history.js` | 5 статей, хронология, персоналии |
 | 9. Справочник | `data/reference.js`, `js/views/reference.js` | Горячие клавиши, ряды E, цветовой код, типоразмеры, слои, 14 калькуляторов, глоссарий |
@@ -66,6 +68,8 @@ npm run test:api                 # тест всех эндпоинтов: с и
 ## Как обновлять
 
 - **Схемы и проекты KiCad:** правьте `tools/circuits.py` / `tools/projects.py`, затем выполните `python3 tools/build.py`. Скрипт генерирует проекты, прогоняет ERC в `kicad-cli`, сверяет netlist с задуманными цепями, экспортирует SVG/PDF/BOM и обновляет `data/kicad-gen.js`. Нужен установленный KiCad 8+.
+- **Демо-платы просмотрщика Gerber:** правьте `tools/pcbgen.py` и выполните `python3 tools/pcbgen.py` — он соберёт `.kicad_pcb`, проверит DRC в `kicad-cli` и выгрузит `kicad/*-gerber.zip`.
+- **Тесты без браузера:** `node tools/test-gerber.mjs` (разбор Gerber/Excellon/ZIP на демо-платах) и `node tools/test-routing.mjs` (эталонные решения уровней тренажёра проходят DRC, ошибки ловятся).
 - **После любых изменений файлов:** выполните `python3 tools/make_sw.py`. Он обновит версию офлайн-кэша и `assets.json`.
 - **Настоящие скриншоты KiCad:** положите PNG в `media/screens/` и пропишите их в `KM.data.screens` (`data/figures.js`). Аннотации наложатся поверх.
 - **Настоящие видео:** положите mp4 в `media/videos/` и добавьте демо поле `video: 'media/videos/имя.mp4'`.

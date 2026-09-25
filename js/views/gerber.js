@@ -1,1152 +1,539 @@
 /* =========================================================
-   Интерактивный Gerber-вьювер и 3D-просмотрщик печатных плат.
-   Поддержка Gerber RS-274X, файлов сверловки Excellon,
-   распаковки ZIP-архивов и 3D-визуализации платы (Canvas2D/3D).
+   Просмотрщик Gerber и 3D-вид платы.
+   Файлы разбирает js/gerber-parse.js (KM.gerber). Здесь — отрисовка:
+   «Верх» и «Низ» — плата как с завода (маска, покрытие, шелкография),
+   «Слои» — как в GerbView, «3D» — плата из тех же файлов (CSS 3D).
+   Демо-платы — настоящие Gerber из KiCad (tools/pcbgen.py).
    ========================================================= */
 (function () {
   'use strict';
+  var G = KM.gerber;
 
-  var currentTab = '2d'; // '2d' или '3d'
-  var activeDemo = '555';
-  var activeTool = 'pan'; // 'pan' или 'measure'
-  var measurePoints = [];
-  var mouseCoord = { x: 0, y: 0, valid: false };
-
-  // Параметры 2D холста
-  var view2D = {
-    scale: 6,
-    panX: 0,
-    panY: 0,
-    dragging: false,
-    lastMouseX: 0,
-    lastMouseY: 0
-  };
-
-  // Параметры 3D сцены
-  var view3D = {
-    rotX: 35 * Math.PI / 180,
-    rotY: -25 * Math.PI / 180,
-    zoom: 1.0,
-    dragging: false,
-    lastX: 0,
-    lastY: 0,
-    autoRotate: false,
-    maskColor: 'green',
-    finish: 'gold', // 'gold' (ENIG) или 'silver' (HASL)
-    showComponents: true
-  };
-
-  var MASK_COLORS = {
-    green: { name: 'KiCad Зелёный', bg: '#0b472a', edge: '#07331e', padMask: 'rgba(11,71,42,0.85)' },
-    black: { name: 'Матовый Чёрный', bg: '#171717', edge: '#0a0a0a', padMask: 'rgba(23,23,23,0.88)' },
-    blue: { name: 'Королевский Синий', bg: '#103d6d', edge: '#092544', padMask: 'rgba(16,61,109,0.85)' },
-    purple: { name: 'OSH Фиолетовый', bg: '#431966', edge: '#2b0f44', padMask: 'rgba(67,25,102,0.85)' },
-    red: { name: 'Красный', bg: '#701414', edge: '#480c0c', padMask: 'rgba(112,20,20,0.85)' },
-    white: { name: 'Белый', bg: '#e8ecea', edge: '#bac2be', padMask: 'rgba(232,236,234,0.85)' }
-  };
-
-  // Слои
-  var layers = [
-    { id: 'edge', name: 'Edge.Cuts (Контур)', color: '#d0d200', visible: true, opacity: 1.0, data: null },
-    { id: 'fsilk', name: 'F.Silkscreen (Шелк. верх)', color: '#f5f5f5', visible: true, opacity: 0.9, data: null },
-    { id: 'fcu', name: 'F.Cu (Верхняя медь)', color: '#e04040', visible: true, opacity: 0.85, data: null },
-    { id: 'bcu', name: 'B.Cu (Нижняя медь)', color: '#4080e0', visible: true, opacity: 0.75, data: null },
-    { id: 'drill', name: 'Drill (Сверловка)', color: '#202020', visible: true, opacity: 1.0, data: null }
+  var DEMOS = [
+    { id: 'blinker', title: 'Мигалка на NE555', desc: '40×30 мм · 2 слоя · полигон GND · переходные отверстия', file: 'kicad/blinker-gerber.zip' },
+    { id: 'badge', title: 'Круглый значок', desc: 'Ø36 мм · 4 светодиода · круглый контур', file: 'kicad/badge-gerber.zip' }
   ];
-
-  /* =========================================================
-     Встроенные эталонные демо-платы
-     ========================================================= */
-  var DEMO_BOARDS = {
-    '555': {
-      title: 'Таймер NE555 (Астабильный мультивибратор)',
-      desc: 'Классическая плата генератора импульсов со светодиодом, подстроечником и разъёмом питания.',
-      width: 44,
-      height: 32,
-      components: [
-        { id: 'U1', package: 'soic8', x: 20, y: 16, rot: 0, val: 'NE555' },
-        { id: 'R1', package: 'r0805', x: 10, y: 10, rot: 90, val: '10k' },
-        { id: 'R2', package: 'r0805', x: 10, y: 22, rot: 90, val: '47k' },
-        { id: 'C1', package: 'c0805', x: 30, y: 10, rot: 0, val: '10uF' },
-        { id: 'C2', package: 'c0805', x: 30, y: 22, rot: 0, val: '100nF' },
-        { id: 'D1', package: 'led0805', x: 36, y: 16, rot: 90, val: 'LED' },
-        { id: 'J1', package: 'header2', x: 4, y: 16, rot: 90, val: 'PWR 5V' }
-      ],
-      traces: {
-        fcu: [
-          // F.Cu tracks
-          { w: 0.4, pts: [[4, 13.7], [6.5, 13.7], [8, 10], [10, 7]] }, // VCC bus
-          { w: 0.4, pts: [[10, 7], [16, 7], [16, 11], [17.5, 12.2]] }, // VCC to U1 pin 8
-          { w: 0.4, pts: [[17.5, 12.2], [17.5, 13.5]] }, // pin 8 to pin 4
-          { w: 0.35, pts: [[10, 13], [10, 19]] }, // R1 to R2
-          { w: 0.35, pts: [[10, 16], [15, 16], [17.5, 14.7]] }, // to pin 7 (DISCH)
-          { w: 0.35, pts: [[10, 25], [14, 25], [14, 18.5], [17.5, 16.0]] }, // R2 to pin 6 (THRESH)
-          { w: 0.35, pts: [[17.5, 16.0], [17.5, 17.3]] }, // pin 6 to pin 2 (TRIG)
-          { w: 0.35, pts: [[22.5, 16.0], [28, 16], [32, 16], [36, 13.5]] }, // pin 3 (OUT) to LED
-          { w: 0.35, pts: [[22.5, 17.3], [27, 20], [30, 20]] }, // pin 5 (CTRL) to C2
-          { w: 0.4, pts: [[36, 18.5], [36, 26], [20, 26]] } // LED cathode to GND
-        ],
-        bcu: [
-          // B.Cu GND plane / traces
-          { w: 0.8, pts: [[4, 18.3], [12, 18.3], [12, 28], [38, 28]] },
-          { w: 0.8, pts: [[20, 28], [22.5, 12.2]] }, // U1 pin 1 to GND
-          { w: 0.6, pts: [[30, 13], [30, 28]] }, // C1 to GND
-          { w: 0.6, pts: [[30, 24], [30, 28]] }  // C2 to GND
-        ]
-      },
-      vias: [
-        { x: 20, y: 26, d: 0.8, drill: 0.4 },
-        { x: 12, y: 18.3, d: 0.8, drill: 0.4 },
-        { x: 38, y: 28, d: 0.8, drill: 0.4 }
-      ]
-    },
-    'buck': {
-      title: 'DC-DC Понижающий 5В (LM2596/MP2307)',
-      desc: 'Импульсный преобразователь напряжения с силовой катушкой индуктивности и конденсаторами с низким ESR.',
-      width: 48,
-      height: 28,
-      components: [
-        { id: 'U1', package: 'soic8', x: 22, y: 14, rot: 0, val: 'MP2307' },
-        { id: 'L1', package: 'ind7x7', x: 33, y: 14, rot: 0, val: '10uH' },
-        { id: 'CIN', package: 'cap_elec', x: 10, y: 14, rot: 0, val: '100uF 35V' },
-        { id: 'COUT', package: 'cap_elec', x: 42, y: 14, rot: 0, val: '220uF 10V' },
-        { id: 'J_IN', package: 'header2', x: 4, y: 14, rot: 90, val: 'VIN' },
-        { id: 'J_OUT', package: 'header2', x: 46, y: 22, rot: 0, val: 'VOUT' }
-      ],
-      traces: {
-        fcu: [
-          { w: 1.2, pts: [[4, 11.5], [7, 11.5], [10, 11.5], [19.5, 11.5]] }, // VIN plane
-          { w: 1.5, pts: [[24.5, 14], [29, 14]] }, // SW node to Inductor
-          { w: 1.5, pts: [[37, 14], [42, 11.5], [46, 20.7]] }, // VOUT plane
-          { w: 0.35, pts: [[42, 11.5], [38, 22], [24.5, 17.3]] } // FB feedback
-        ],
-        bcu: [
-          { w: 1.5, pts: [[4, 16.5], [10, 16.5], [22, 16.5], [42, 16.5], [46, 23.3]] } // Solid GND
-        ]
-      },
-      vias: [
-        { x: 19.5, y: 17, d: 0.9, drill: 0.45 },
-        { x: 24.5, y: 11.5, d: 0.9, drill: 0.45 },
-        { x: 30, y: 20, d: 0.9, drill: 0.45 }
-      ]
-    },
-    'mcu': {
-      title: 'Узел датчика с микроконтроллером (QFN-32 & I2C)',
-      desc: 'Компактная плата узла сбора данных с кварцем, разъёмом программирования и шиной I2C.',
-      width: 50,
-      height: 36,
-      components: [
-        { id: 'U1', package: 'qfn32', x: 25, y: 18, rot: 0, val: 'STM32 / ESP' },
-        { id: 'Y1', package: 'crystal', x: 13, y: 18, rot: 90, val: '16MHz' },
-        { id: 'C1', package: 'c0805', x: 13, y: 11, rot: 0, val: '18pF' },
-        { id: 'C2', package: 'c0805', x: 13, y: 25, rot: 0, val: '18pF' },
-        { id: 'SEN', package: 'soic8', x: 39, y: 18, rot: 0, val: 'BME280' },
-        { id: 'J_SWD', package: 'header4', x: 25, y: 5, rot: 0, val: 'SWD / PROG' }
-      ],
-      traces: {
-        fcu: [
-          { w: 0.3, pts: [[13, 15], [19, 15]] },
-          { w: 0.3, pts: [[13, 21], [19, 21]] },
-          { w: 0.35, pts: [[31, 16], [36.5, 16]] }, // I2C SDA
-          { w: 0.35, pts: [[31, 17.5], [36.5, 17.5]] }, // I2C SCL
-          { w: 0.4, pts: [[25, 7.5], [25, 12]] }, // SWDIO / SWCLK
-          { w: 0.4, pts: [[22.5, 7.5], [22.5, 12]] }
-        ],
-        bcu: [
-          { w: 0.8, pts: [[6, 6], [44, 6], [44, 30], [6, 30], [6, 6]] } // Perimeter GND
-        ]
-      },
-      vias: [
-        { x: 19, y: 12, d: 0.7, drill: 0.35 },
-        { x: 31, y: 12, d: 0.7, drill: 0.35 },
-        { x: 25, y: 24, d: 0.7, drill: 0.35 }
-      ]
-    }
+  var MASKS = {
+    green: ['Зелёная', '#0d5a2c'], black: ['Чёрная', '#151515'], blue: ['Синяя', '#12467c'],
+    red: ['Красная', '#8c1c1c'], purple: ['Фиолетовая', '#4a1f72'], white: ['Белая', '#e9ebe7']
   };
+  var FINISH = { enig: ['ENIG (золото)', '#d8b25c'], hasl: ['HASL (олово)', '#c8cbcd'] };
+  var STYLE = {
+    'B.Paste': { c: '#8f8f8f', n: 'Паста снизу', o: 0, a: 0.6, off: true },
+    'B.Silk': { c: '#d6c35e', n: 'Шелкография снизу', o: 1, a: 0.9 },
+    'B.Mask': { c: '#2aa6a6', n: 'Маска снизу', o: 2, a: 0.35, off: true },
+    'B.Cu': { c: '#4a86e0', n: 'Медь снизу (B.Cu)', o: 3, a: 0.8 },
+    'In.Cu': { c: '#c9a83a', n: 'Внутренний слой меди', o: 4, a: 0.7 },
+    'F.Cu': { c: '#e0473f', n: 'Медь сверху (F.Cu)', o: 5, a: 0.8 },
+    'F.Mask': { c: '#b54ab5', n: 'Маска сверху', o: 6, a: 0.35, off: true },
+    'F.Silk': { c: '#f0f0f0', n: 'Шелкография сверху', o: 7, a: 0.95 },
+    'F.Paste': { c: '#a0a0a0', n: 'Паста сверху', o: 8, a: 0.6, off: true },
+    'Edge': { c: '#e6d52b', n: 'Контур платы (Edge.Cuts)', o: 9, a: 1 },
+    'Drill': { c: '#f4f4f4', n: 'Сверловка', o: 10, a: 1 },
+    'Other': { c: '#8a8a8a', n: 'Другой слой', o: 11, a: 0.6, off: true }
+  };
+  var MODES = [['top', 'Верх'], ['bottom', 'Низ'], ['layers', 'Слои'], ['3d', '3D']];
 
-  /* =========================================================
-     Парсер Gerber RS-274X и Excellon Drill
-     ========================================================= */
-  function parseGerberText(text) {
-    var commands = [];
-    var apertures = {};
-    var currentAperture = null;
-    var x = 0, y = 0;
-    var mode = 'G01'; // G01, G02, G03
-    var unitMult = 1.0; // по умолчанию миллиметры (1.0) или дюймы (25.4)
-    var intX = 2, decX = 4, intY = 2, decY = 4;
-    var omitZeros = 'L'; // 'L' (leading) или 'T' (trailing)
+  var st = { board: null, source: '', mode: 'top', mask: 'green', finish: 'enig', tool: 'pan', meas: [], hover: null,
+    view: null, r3: { rx: 55, rz: -25, z: 1, spin: false }, loading: false, demo: null };
+  var env = null; // DOM и обработчики текущего монтирования
 
-    var lines = text.split(/\r?\n/);
-    for (var i = 0; i < lines.length; i++) {
-      var line = lines[i].trim();
-      if (!line) continue;
+  /* =================== Path2D из операций =================== */
+  function ccw(poly) {
+    var a = 0;
+    for (var i = 0; i < poly.length; i++) { var p = poly[i], q = poly[(i + 1) % poly.length]; a += p[0] * q[1] - q[0] * p[1]; }
+    return a >= 0 ? poly : poly.slice().reverse();
+  }
+  function addPoly(path, pts, dx, dy) {
+    pts = ccw(pts);
+    path.moveTo(pts[0][0] + dx, pts[0][1] + dy);
+    for (var i = 1; i < pts.length; i++) path.lineTo(pts[i][0] + dx, pts[i][1] + dy);
+    path.closePath();
+  }
+  function addCircle(path, x, y, r) { path.moveTo(x + r, y); path.arc(x, y, r, 0, Math.PI * 2, false); path.closePath(); }
 
-      // Определение формата: %FSLAX24Y24*% или %FSLAX46Y46*%
-      var fsMatch = line.match(/%FS([LT])A?X(\d)(\d)Y(\d)(\d)\*%/);
-      if (fsMatch) {
-        omitZeros = fsMatch[1];
-        intX = parseInt(fsMatch[2], 10);
-        decX = parseInt(fsMatch[3], 10);
-        intY = parseInt(fsMatch[4], 10);
-        decY = parseInt(fsMatch[5], 10);
-        continue;
+  // Слой → список {fill|stroke, clear, w}
+  function items(layer) {
+    if (layer.items) return layer.items;
+    var out = [], cur = null;
+    function batch(kind, clear, w) {
+      if (!cur || cur.kind !== kind || cur.clear !== clear || cur.w !== w) {
+        cur = { kind: kind, clear: clear, w: w, path: new Path2D() };
+        out.push(cur);
       }
-
-      // Единицы измерения: %MOMM*% (мм) или %MOIN*% (дюймы)
-      if (line.indexOf('%MOMM*%') >= 0) { unitMult = 1.0; continue; }
-      if (line.indexOf('%MOIN*%') >= 0) { unitMult = 25.4; continue; }
-
-      // Определение апертур: %ADD10C,0.2000*% или %ADD11R,1.2X0.8*%
-      var adMatch = line.match(/%ADD(\d+)([A-Z]+),([^%*]+)\*%/);
-      if (adMatch) {
-        var dCode = parseInt(adMatch[1], 10);
-        var type = adMatch[2];
-        var params = adMatch[3].split('X').map(function (p) { return parseFloat(p) * unitMult; });
-        apertures[dCode] = { type: type, params: params };
-        continue;
-      }
-
-      // Выбор апертуры: D10*
-      var apMatch = line.match(/^D(\d+)\*?$/);
-      if (apMatch) {
-        currentAperture = parseInt(apMatch[1], 10);
-        continue;
-      }
-
-      // Режимы интерполяции G01, G02, G03
-      if (line.indexOf('G01') >= 0 || line.indexOf('G1') === 0) mode = 'G01';
-      if (line.indexOf('G02') >= 0 || line.indexOf('G2') === 0) mode = 'G02';
-      if (line.indexOf('G03') >= 0 || line.indexOf('G3') === 0) mode = 'G03';
-
-      // Разбор координат и команд D01, D02, D03
-      var coordMatch = line.match(/(?:X(-?\d+))?(?:Y(-?\d+))?(?:I(-?\d+))?(?:J(-?\d+))?(D0[123])?\*?/);
-      if (coordMatch && (coordMatch[1] || coordMatch[2] || coordMatch[5])) {
-        function parseCoord(raw, intDigits, decDigits) {
-          if (!raw) return null;
-          var sign = 1;
-          if (raw[0] === '-') { sign = -1; raw = raw.slice(1); }
-          else if (raw[0] === '+') raw = raw.slice(1);
-          while (raw.length < intDigits + decDigits) {
-            if (omitZeros === 'L') raw = '0' + raw;
-            else raw = raw + '0';
-          }
-          var val = parseFloat(raw.slice(0, -decDigits) + '.' + raw.slice(-decDigits));
-          return sign * val * unitMult;
-        }
-
-        var newX = coordMatch[1] ? parseCoord(coordMatch[1], intX, decX) : x;
-        var newY = coordMatch[2] ? parseCoord(coordMatch[2], intY, decY) : y;
-        var op = coordMatch[5];
-
-        if (op === 'D01') {
-          // Рисование линии текущей апертурой
-          var ap = apertures[currentAperture] || { type: 'C', params: [0.2] };
-          commands.push({ type: 'line', x1: x, y1: y, x2: newX, y2: newY, width: ap.params[0] || 0.2 });
-        } else if (op === 'D03') {
-          // Вспышка (Flash)
-          var apFlash = apertures[currentAperture] || { type: 'C', params: [1.0] };
-          commands.push({ type: 'flash', x: newX, y: newY, aperture: apFlash });
-        }
-        x = newX;
-        y = newY;
-      }
+      return cur.path;
     }
-    return commands;
-  }
-
-  // Разбор файла сверловки Excellon
-  function parseExcellonText(text) {
-    var drills = [];
-    var tools = {};
-    var curTool = null;
-    var unitMult = 1.0;
-
-    var lines = text.split(/\r?\n/);
-    for (var i = 0; i < lines.length; i++) {
-      var line = lines[i].trim();
-      if (!line || line[0] === ';') continue;
-      if (line === 'METRIC') { unitMult = 1.0; continue; }
-      if (line === 'INCH') { unitMult = 25.4; continue; }
-
-      // Определение инструмента: T01C0.800
-      var tDef = line.match(/^T(\d+)C([0-9.]+)/);
-      if (tDef) {
-        tools[parseInt(tDef[1], 10)] = parseFloat(tDef[2]) * unitMult;
-        continue;
-      }
-
-      // Выбор инструмента: T01
-      var tSel = line.match(/^T(\d+)$/);
-      if (tSel) {
-        curTool = parseInt(tSel[1], 10);
-        continue;
-      }
-
-      // Координаты отверстия: X12.5Y15.0
-      var xyMatch = line.match(/X([0-9.-]+)Y([0-9.-]+)/);
-      if (xyMatch) {
-        var dia = (curTool && tools[curTool]) || 0.8;
-        drills.push({
-          x: parseFloat(xyMatch[1]) * unitMult,
-          y: parseFloat(xyMatch[2]) * unitMult,
-          dia: dia
-        });
-      }
-    }
-    return drills;
-  }
-
-  /* =========================================================
-     Генерация данных для встроенных плат
-     ========================================================= */
-  function getBoardData(id) {
-    var b = DEMO_BOARDS[id] || DEMO_BOARDS['555'];
-    var w = b.width, h = b.height;
-
-    // Edge.Cuts
-    var edge = [
-      { type: 'rect', x: 0, y: 0, w: w, h: h, r: 2.0 },
-      { type: 'circle', x: 2.5, y: 2.5, r: 1.5, hole: true },
-      { type: 'circle', x: w - 2.5, y: 2.5, r: 1.5, hole: true },
-      { type: 'circle', x: 2.5, y: h - 2.5, r: 1.5, hole: true },
-      { type: 'circle', x: w - 2.5, y: h - 2.5, r: 1.5, hole: true }
-    ];
-
-    // Silkscreen
-    var silk = [
-      { type: 'text', str: 'KiCad Master Pro', x: w / 2, y: 3.5, size: 1.4, align: 'center' },
-      { type: 'text', str: b.title.split(' ')[0] + ' v2.0', x: w / 2, y: h - 2.2, size: 1.1, align: 'center' }
-    ];
-    b.components.forEach(function (c) {
-      silk.push({ type: 'text', str: c.id, x: c.x, y: c.y - (c.rot ? 3.5 : 2.5), size: 1.1, align: 'center' });
-      silk.push({ type: 'box', x: c.x - 2, y: c.y - 1.5, w: 4, h: 3 });
-    });
-
-    // F.Cu (Pads & Traces)
-    var fcu = [];
-    (b.traces.fcu || []).forEach(function (tr) {
-      for (var i = 0; i < tr.pts.length - 1; i++) {
-        fcu.push({ type: 'line', x1: tr.pts[i][0], y1: tr.pts[i][1], x2: tr.pts[i + 1][0], y2: tr.pts[i + 1][1], width: tr.w });
-      }
-    });
-    // Добавляем контактные площадки компонентов
-    b.components.forEach(function (c) {
-      if (c.package === 'soic8') {
-        var dx = 2.5, dy = 1.27;
-        for (var p = 0; p < 4; p++) {
-          fcu.push({ type: 'pad', x: c.x - dx, y: c.y - 1.9 + p * dy, w: 1.5, h: 0.6 });
-          fcu.push({ type: 'pad', x: c.x + dx, y: c.y - 1.9 + p * dy, w: 1.5, h: 0.6 });
+    if (layer.kind === 'drill') {
+      layer.holes.forEach(function (h) { addCircle(batch('fill', false), h.x, h.y, h.d / 2); });
+      layer.slots.forEach(function (s) { var p = batch('stroke', false, s.d); p.moveTo(s.x0, s.y0); p.lineTo(s.x1, s.y1); });
+    } else {
+      layer.ops.forEach(function (o) {
+        if (o.t === 'stroke') {
+          if (!(o.w > 0)) return;
+          var p = batch('stroke', o.clear, o.w);
+          p.moveTo(o.x0, o.y0);
+          if (o.arc) {
+            var r = Math.hypot(o.x0 - o.arc.cx, o.y0 - o.arc.cy), a0 = Math.atan2(o.y0 - o.arc.cy, o.x0 - o.arc.cx), a1 = Math.atan2(o.y1 - o.arc.cy, o.x1 - o.arc.cx);
+            if (Math.hypot(o.x1 - o.x0, o.y1 - o.y0) < 1e-6) a1 = a0 + (o.arc.cw ? -2 : 2) * Math.PI;
+            p.arc(o.arc.cx, o.arc.cy, r, a0, a1, o.arc.cw);
+          } else p.lineTo(o.x1, o.y1);
+        } else if (o.t === 'flash') {
+          var ap = layer.aps[o.ap];
+          ap.shapes.forEach(function (sh) {
+            var clear = sh.clear ? !o.clear : o.clear, path = batch('fill', clear, 0);
+            if (sh.circle) addCircle(path, o.x + sh.circle[0], o.y + sh.circle[1], sh.circle[2]);
+            else addPoly(path, sh.poly, o.x, o.y);
+          });
+        } else if (o.t === 'region') {
+          var rp = batch('fill', o.clear, 0);
+          o.contours.forEach(function (c) { addPoly(rp, c, 0, 0); });
         }
-      } else if (c.package === 'r0805' || c.package === 'c0805' || c.package === 'led0805') {
-        var isV = c.rot === 90;
-        fcu.push({ type: 'pad', x: c.x - (isV ? 0 : 0.95), y: c.y - (isV ? 0.95 : 0), w: isV ? 1.2 : 0.9, h: isV ? 0.9 : 1.2 });
-        fcu.push({ type: 'pad', x: c.x + (isV ? 0 : 0.95), y: c.y + (isV ? 0.95 : 0), w: isV ? 1.2 : 0.9, h: isV ? 0.9 : 1.2 });
-      } else if (c.package === 'header2') {
-        fcu.push({ type: 'pad_th', x: c.x, y: c.y - 1.27, r: 1.0, drill: 0.8 });
-        fcu.push({ type: 'pad_th', x: c.x, y: c.y + 1.27, r: 1.0, drill: 0.8 });
-      }
-    });
-
-    // B.Cu
-    var bcu = [];
-    (b.traces.bcu || []).forEach(function (tr) {
-      for (var i = 0; i < tr.pts.length - 1; i++) {
-        bcu.push({ type: 'line', x1: tr.pts[i][0], y1: tr.pts[i][1], x2: tr.pts[i + 1][0], y2: tr.pts[i + 1][1], width: tr.w });
-      }
-    });
-
-    // Drill holes
-    var drill = [
-      { x: 2.5, y: 2.5, dia: 3.0 },
-      { x: w - 2.5, y: 2.5, dia: 3.0 },
-      { x: 2.5, y: h - 2.5, dia: 3.0 },
-      { x: w - 2.5, y: h - 2.5, dia: 3.0 }
-    ];
-    (b.vias || []).forEach(function (v) {
-      drill.push({ x: v.x, y: v.y, dia: v.drill });
-      fcu.push({ type: 'pad_th', x: v.x, y: v.y, r: v.d / 2, drill: v.drill });
-      bcu.push({ type: 'pad_th', x: v.x, y: v.y, r: v.d / 2, drill: v.drill });
-    });
-
-    return { edge: edge, fsilk: silk, fcu: fcu, bcu: bcu, drill: drill, board: b };
+      });
+    }
+    layer.items = out;
+    return out;
+  }
+  function outlinePath(b) {
+    if (b.outlinePath) return b.outlinePath;
+    var p = new Path2D();
+    if (b.outline.length) b.outline.forEach(function (l) { p.moveTo(l[0][0], l[0][1]); l.forEach(function (q) { p.lineTo(q[0], q[1]); }); p.closePath(); });
+    else p.rect(b.box[0], b.box[1], b.box[2] - b.box[0], b.box[3] - b.box[1]);
+    b.outlinePath = p;
+    return p;
   }
 
-  /* =========================================================
-     2D Отрисовка на Canvas
-     ========================================================= */
-  function render2D(canvas) {
-    if (!canvas) return;
-    var ctx = canvas.getContext('2d');
-    var w = canvas.width, h = canvas.height;
+  /* =================== растеризация =================== */
+  var pool = [];
+  function surface(i, w, h) {
+    var c = pool[i] || (pool[i] = document.createElement('canvas'));
+    if (c.width !== w || c.height !== h) { c.width = w; c.height = h; }
+    var ctx = c.getContext('2d');
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
     ctx.clearRect(0, 0, w, h);
+    return { c: c, ctx: ctx };
+  }
+  function paint(ctx, T, list, color, cutAll) {
+    ctx.setTransform(T[0], 0, 0, T[1], T[2], T[3]);
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    list.forEach(function (it) {
+      if (cutAll && it.clear) return;
+      ctx.globalCompositeOperation = cutAll || it.clear ? 'destination-out' : 'source-over';
+      if (it.kind === 'fill') { ctx.fillStyle = color; ctx.fill(it.path, 'nonzero'); }
+      else { ctx.strokeStyle = color; ctx.lineWidth = it.w; ctx.stroke(it.path); }
+    });
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+  }
+  // Видимость: выбор пользователя, иначе — по умолчанию для режима (маска и паста в «Слоях» скрыты)
+  function visible(l) {
+    var v = st.board.vis[l.layer + '|' + l.name];
+    return v != null ? v : !(st.mode === 'layers' && STYLE[l.layer].off);
+  }
+  function layersOf(kind) { return st.board.layers.filter(function (l) { return l.layer === kind && visible(l); }); }
 
-    // Тёмный фон рабочей области KiCad
-    ctx.fillStyle = '#0a0f0d';
-    ctx.fillRect(0, 0, w, h);
-
-    // Сетка
-    var s = view2D.scale;
-    var ox = view2D.panX + w / 2;
-    var oy = view2D.panY + h / 2;
-
-    ctx.save();
-    ctx.strokeStyle = '#182420';
-    ctx.lineWidth = 1;
-    var gridStep = 5 * s; // каждые 5 мм
-    if (gridStep > 15) {
-      ctx.beginPath();
-      for (var x = ox % gridStep; x < w; x += gridStep) { ctx.moveTo(x, 0); ctx.lineTo(x, h); }
-      for (var y = oy % gridStep; y < h; y += gridStep) { ctx.moveTo(0, y); ctx.lineTo(w, y); }
-      ctx.stroke();
+  // Плата «как с завода»: side = top | bottom. T = [sx, sy, ox, oy] (мм → пиксели)
+  function realistic(ctx, w, h, T, side) {
+    var b = st.board, f = side === 'top' ? 'F.' : 'B.';
+    var base = surface(0, w, h), bc = base.ctx;
+    bc.setTransform(T[0], 0, 0, T[1], T[2], T[3]);
+    bc.fillStyle = '#8f7f4c';
+    bc.fill(outlinePath(b), 'evenodd');
+    bc.setTransform(1, 0, 0, 1, 0, 0);
+    function over(list, color, alpha, prep) {
+      if (!list.length) return;
+      var s = surface(1, w, h);
+      if (prep) prep(s.ctx);
+      list.forEach(function (l) { paint(s.ctx, T, items(l), color, prep); });
+      bc.globalCompositeOperation = 'source-atop'; bc.globalAlpha = alpha;
+      bc.drawImage(s.c, 0, 0);
+      bc.globalCompositeOperation = 'source-over'; bc.globalAlpha = 1;
     }
+    over(layersOf(f + 'Cu'), FINISH[st.finish][1], 1);
+    var masks = layersOf(f + 'Mask');
+    if (masks.length) over(masks, '#000', 0.93, function (mc) { mc.setTransform(T[0], 0, 0, T[1], T[2], T[3]); mc.fillStyle = MASKS[st.mask][1]; mc.fill(outlinePath(b), 'evenodd'); mc.setTransform(1, 0, 0, 1, 0, 0); });
+    over(layersOf(f + 'Silk'), st.mask === 'white' ? '#1b1b1b' : '#f3f3ef', 1);
+    b.layers.filter(function (l) { return l.kind === 'drill' && visible(l); }).forEach(function (l) { paint(bc, T, items(l), '#000', true); });
+    return base.c;
+  }
 
-    // Трансформация в систему координат платы (мм)
-    ctx.translate(ox, oy);
-    ctx.scale(s, s);
-
-    var data = getBoardData(activeDemo);
-
-    // 1. Отрисовка контура платы (Edge.Cuts) и текстолита
-    var edgeLayer = layers.find(function (l) { return l.id === 'edge'; });
-    if (edgeLayer && edgeLayer.visible) {
-      var bw = data.board.width, bh = data.board.height;
-      ctx.fillStyle = '#0d241c';
-      ctx.fillRect(0, 0, bw, bh);
-
-      ctx.strokeStyle = edgeLayer.color;
-      ctx.lineWidth = 0.2;
-      ctx.strokeRect(0, 0, bw, bh);
-    }
-
-    // 2. Отрисовка B.Cu (Нижняя медь)
-    var bcuLayer = layers.find(function (l) { return l.id === 'bcu'; });
-    if (bcuLayer && bcuLayer.visible) {
-      ctx.save();
-      ctx.globalAlpha = bcuLayer.opacity;
-      ctx.strokeStyle = bcuLayer.color;
-      ctx.fillStyle = bcuLayer.color;
-      data.bcu.forEach(function (el) {
-        if (el.type === 'line') {
-          ctx.lineWidth = el.width || 0.4;
-          ctx.lineCap = 'round';
-          ctx.beginPath();
-          ctx.moveTo(el.x1, el.y1);
-          ctx.lineTo(el.x2, el.y2);
-          ctx.stroke();
-        } else if (el.type === 'pad_th') {
-          ctx.beginPath();
-          ctx.arc(el.x, el.y, el.r, 0, Math.PI * 2);
-          ctx.fill();
+  /* =================== вид и отрисовка 2D =================== */
+  function T2D() {
+    var v = st.view, d = env.dpr, m = st.mode === 'bottom' ? -1 : 1;
+    return [v.s * d * m, -v.s * d, v.ox * d, v.oy * d];
+  }
+  function fit() {
+    if (!env || !st.board) return;
+    var W = env.cv.clientWidth, H = env.cv.clientHeight, b = st.board.box;
+    var bw = Math.max(1, b[2] - b[0]), bh = Math.max(1, b[3] - b[1]), pad = Math.min(48, W * 0.08);
+    var s = Math.min((W - pad * 2) / bw, (H - pad * 2) / bh), m = st.mode === 'bottom' ? -1 : 1;
+    st.view = { s: s, ox: W / 2 - m * (b[0] + bw / 2) * s, oy: H / 2 + (b[1] + bh / 2) * s };
+    draw();
+  }
+  function toBoard(sx, sy) {
+    var v = st.view, m = st.mode === 'bottom' ? -1 : 1;
+    return [(sx - v.ox) / v.s * m, -(sy - v.oy) / v.s];
+  }
+  function toScreen(x, y) {
+    var v = st.view, m = st.mode === 'bottom' ? -1 : 1;
+    return [v.ox + m * x * v.s, v.oy - y * v.s];
+  }
+  function draw() {
+    if (!env || env.raf) return;
+    env.raf = requestAnimationFrame(function () { env.raf = 0; render(); });
+  }
+  function render() {
+    if (!env || st.mode === '3d') return;
+    var cv = env.cv, d = env.dpr, W = Math.max(1, Math.round(cv.clientWidth * d)), H = Math.max(1, Math.round(cv.clientHeight * d));
+    if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
+    var ctx = cv.getContext('2d');
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    var real = st.mode !== 'layers';
+    ctx.fillStyle = real ? '#1c2024' : '#0a0e0c';
+    ctx.fillRect(0, 0, W, H);
+    if (!st.board) return;
+    if (!st.view) { fit(); return; }
+    var T = T2D();
+    grid(ctx, W, H, real);
+    if (real) {
+      var img = realistic(ctx, W, H, T, st.mode);
+      ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.55)'; ctx.shadowBlur = 24 * d; ctx.shadowOffsetY = 6 * d;
+      ctx.drawImage(img, 0, 0); ctx.restore();
+    } else {
+      st.board.layers.slice().sort(function (a, b) { return STYLE[a.layer].o - STYLE[b.layer].o; }).forEach(function (l) {
+        if (!visible(l)) return;
+        var s = surface(0, W, H), sty = STYLE[l.layer];
+        paint(s.ctx, T, items(l), l.kind === 'drill' ? '#0a0e0c' : sty.c);
+        if (l.kind === 'drill') { // отверстия: тёмный круг с белой обводкой
+          s.ctx.setTransform(T[0], 0, 0, T[1], T[2], T[3]);
+          s.ctx.strokeStyle = '#e8e8e8'; s.ctx.lineWidth = 1.2 / st.view.s;
+          items(l).forEach(function (it) { if (it.kind === 'fill') s.ctx.stroke(it.path); });
         }
+        ctx.globalAlpha = sty.a; ctx.drawImage(s.c, 0, 0); ctx.globalAlpha = 1;
       });
-      ctx.restore();
     }
-
-    // 3. Отрисовка F.Cu (Верхняя медь)
-    var fcuLayer = layers.find(function (l) { return l.id === 'fcu'; });
-    if (fcuLayer && fcuLayer.visible) {
-      ctx.save();
-      ctx.globalAlpha = fcuLayer.opacity;
-      ctx.strokeStyle = fcuLayer.color;
-      ctx.fillStyle = fcuLayer.color;
-      data.fcu.forEach(function (el) {
-        if (el.type === 'line') {
-          ctx.lineWidth = el.width || 0.4;
-          ctx.lineCap = 'round';
-          ctx.beginPath();
-          ctx.moveTo(el.x1, el.y1);
-          ctx.lineTo(el.x2, el.y2);
-          ctx.stroke();
-        } else if (el.type === 'pad') {
-          ctx.fillRect(el.x - el.w / 2, el.y - el.h / 2, el.w, el.h);
-        } else if (el.type === 'pad_th') {
-          ctx.beginPath();
-          ctx.arc(el.x, el.y, el.r, 0, Math.PI * 2);
-          ctx.fill();
-        }
-      });
-      ctx.restore();
+    measureOverlay(ctx, d);
+  }
+  function grid(ctx, W, H, real) {
+    var v = st.view, d = env.dpr, step = 1;
+    while (step * v.s < 14) step *= step === 1 ? 5 : 2;
+    if (step * v.s > 140) return;
+    var b0 = toBoard(0, H), b1 = toBoard(W / d, 0);
+    var x0 = Math.floor(Math.min(b0[0], b1[0]) / step) * step, x1 = Math.max(b0[0], b1[0]), y0 = Math.floor(b0[1] / step) * step;
+    ctx.fillStyle = real ? 'rgba(255,255,255,.07)' : 'rgba(120,200,160,.14)';
+    var r = Math.max(1, d);
+    for (var x = x0; x <= x1; x += step) for (var y = y0; y <= b1[1]; y += step) {
+      var p = toScreen(x, y);
+      ctx.fillRect(p[0] * d - r / 2, p[1] * d - r / 2, r, r);
     }
-
-    // 4. Отрисовка шелкографии (F.Silkscreen)
-    var silkLayer = layers.find(function (l) { return l.id === 'fsilk'; });
-    if (silkLayer && silkLayer.visible) {
-      ctx.save();
-      ctx.globalAlpha = silkLayer.opacity;
-      ctx.fillStyle = silkLayer.color;
-      ctx.strokeStyle = silkLayer.color;
-      data.fsilk.forEach(function (el) {
-        if (el.type === 'text') {
-          ctx.font = (el.size || 1.2) + 'px monospace';
-          ctx.textAlign = el.align || 'left';
-          ctx.fillText(el.str, el.x, el.y);
-        } else if (el.type === 'box') {
-          ctx.lineWidth = 0.15;
-          ctx.strokeRect(el.x, el.y, el.w, el.h);
-        }
-      });
-      ctx.restore();
+  }
+  function measureOverlay(ctx, d) {
+    if (!st.meas.length) return;
+    var pts = st.meas.slice();
+    if (pts.length === 1 && st.hover) pts.push(st.hover);
+    ctx.save(); ctx.setTransform(d, 0, 0, d, 0, 0);
+    ctx.strokeStyle = '#ffd24a'; ctx.fillStyle = '#ffd24a'; ctx.lineWidth = 2;
+    var s = pts.map(function (p) { return toScreen(p[0], p[1]); });
+    ctx.beginPath(); ctx.moveTo(s[0][0], s[0][1]); if (s[1]) ctx.lineTo(s[1][0], s[1][1]); ctx.stroke();
+    s.forEach(function (q) { ctx.beginPath(); ctx.arc(q[0], q[1], 4, 0, Math.PI * 2); ctx.fill(); });
+    if (s[1]) {
+      var dx = pts[1][0] - pts[0][0], dy = pts[1][1] - pts[0][1];
+      var txt = fmt(Math.hypot(dx, dy)) + ' мм  (Δx ' + fmt(Math.abs(dx)) + ', Δy ' + fmt(Math.abs(dy)) + ')';
+      ctx.font = '600 13px system-ui, sans-serif';
+      var tw = ctx.measureText(txt).width, mx = (s[0][0] + s[1][0]) / 2, my = (s[0][1] + s[1][1]) / 2 - 14;
+      ctx.fillStyle = 'rgba(20,20,20,.85)'; ctx.fillRect(mx - tw / 2 - 8, my - 13, tw + 16, 24);
+      ctx.fillStyle = '#ffd24a'; ctx.textAlign = 'center'; ctx.fillText(txt, mx, my + 4);
     }
-
-    // 5. Отрисовка отверстий сверловки (Drill)
-    var drillLayer = layers.find(function (l) { return l.id === 'drill'; });
-    if (drillLayer && drillLayer.visible) {
-      ctx.save();
-      ctx.fillStyle = '#0a0f0d'; // цвет фона (сквозное отверстие)
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 0.1;
-      data.drill.forEach(function (el) {
-        ctx.beginPath();
-        ctx.arc(el.x, el.y, el.dia / 2, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
-      });
-      ctx.restore();
-    }
-
-    // 6. Измерительная линейка (Measure Mode)
-    if (measurePoints.length > 0) {
-      ctx.save();
-      ctx.strokeStyle = '#00ffcc';
-      ctx.lineWidth = 0.2;
-      ctx.fillStyle = '#00ffcc';
-      var p1 = measurePoints[0];
-      var p2 = measurePoints.length > 1 ? measurePoints[1] : mouseCoord;
-
-      ctx.beginPath();
-      ctx.arc(p1.x, p1.y, 0.4, 0, Math.PI * 2);
-      ctx.fill();
-
-      if (p2 && p2.valid !== false) {
-        ctx.beginPath();
-        ctx.moveTo(p1.x, p1.y);
-        ctx.lineTo(p2.x, p2.y);
-        ctx.stroke();
-
-        ctx.beginPath();
-        ctx.arc(p2.x, p2.y, 0.4, 0, Math.PI * 2);
-        ctx.fill();
-
-        var dist = Math.hypot(p2.x - p1.x, p2.y - p1.y);
-        var midX = (p1.x + p2.x) / 2;
-        var midY = (p1.y + p2.y) / 2;
-        ctx.font = '1.4px sans-serif';
-        ctx.fillStyle = '#ffffff';
-        ctx.fillText(dist.toFixed(2) + ' мм (' + (dist / 0.0254).toFixed(0) + ' mils)', midX + 1, midY - 1);
-      }
-      ctx.restore();
-    }
-
     ctx.restore();
   }
+  function fmt(v) { return v.toFixed(v < 10 ? 2 : 1).replace('.', ','); }
 
-  /* =========================================================
-     3D Отрисовка платы (Canvas2.5D / Pseudo-3D Perspective)
-     ========================================================= */
-  var anim3dId = null;
-  function render3D(canvas) {
-    if (!canvas) return;
-    var ctx = canvas.getContext('2d');
-    var w = canvas.width, h = canvas.height;
-    ctx.clearRect(0, 0, w, h);
-
-    // Стильный тёмный градиент окружения
-    var bgGrad = ctx.createRadialGradient(w / 2, h / 2, 50, w / 2, h / 2, w / 1.5);
-    bgGrad.addColorStop(0, '#15201b');
-    bgGrad.addColorStop(1, '#080d0b');
-    ctx.fillStyle = bgGrad;
-    ctx.fillRect(0, 0, w, h);
-
-    var data = getBoardData(activeDemo);
-    var bw = data.board.width, bh = data.board.height;
-    var thickness = 1.6; // 1.6 мм стандартная толщина FR-4
-
-    var rx = view3D.rotX, ry = view3D.rotY;
-    var zoom = view3D.zoom * Math.min(w, h) / 60;
-    var cx = w / 2, cy = h / 2;
-
-    // Функция 3D-проекции с вращением вокруг центра платы
-    function project(x, y, z) {
-      // Смещение в центр платы
-      var px = x - bw / 2;
-      var py = y - bh / 2;
-      var pz = z - thickness / 2;
-
-      // Вращение по Y
-      var cosY = Math.cos(ry), sinY = Math.sin(ry);
-      var x1 = px * cosY + pz * sinY;
-      var z1 = -px * sinY + pz * cosY;
-
-      // Вращение по X
-      var cosX = Math.cos(rx), sinX = Math.sin(rx);
-      var y2 = py * cosX - z1 * sinX;
-      var z2 = py * sinX + z1 * cosX;
-
-      // Перспектива
-      var fov = 300;
-      var d = fov / (fov + z2);
-      return {
-        x: cx + x1 * zoom * d,
-        y: cy + y2 * zoom * d,
-        z: z2
-      };
+  /* =================== 3D =================== */
+  function build3D() {
+    if (!env || !st.board) return;
+    var b = st.board, box = b.box, bw = box[2] - box[0], bh = box[3] - box[1];
+    var k = Math.min(12, 1400 / Math.max(bw, bh)), W = Math.ceil(bw * k), H = Math.ceil(bh * k);
+    var T = [k, -k, -box[0] * k, box[3] * k];
+    function face(side) {
+      var c = document.createElement('canvas'); c.width = W; c.height = H;
+      c.getContext('2d').drawImage(realistic(null, W, H, T, side), 0, 0);
+      return c;
     }
-
-    var mask = MASK_COLORS[view3D.maskColor] || MASK_COLORS.green;
-    var padCol = view3D.finish === 'gold' ? '#e5b338' : '#c8d0d4';
-
-    // 1. Отрисовка нижних граней и торцов текстолита (FR-4)
-    var pTop = [project(0, 0, thickness), project(bw, 0, thickness), project(bw, bh, thickness), project(0, bh, thickness)];
-    var pBot = [project(0, 0, 0), project(bw, 0, 0), project(bw, bh, 0)];
-
-    // Боковые торцы платы
-    ctx.fillStyle = mask.edge;
-    ctx.beginPath();
-    ctx.moveTo(pTop[2].x, pTop[2].y);
-    ctx.lineTo(pTop[3].x, pTop[3].y);
-    var pBot3 = project(0, bh, 0);
-    var pBot2 = project(bw, bh, 0);
-    ctx.lineTo(pBot3.x, pBot3.y);
-    ctx.lineTo(pBot2.x, pBot2.y);
-    ctx.closePath();
-    ctx.fill();
-
-    // Правый торец
-    ctx.fillStyle = mask.edge;
-    ctx.beginPath();
-    ctx.moveTo(pTop[1].x, pTop[1].y);
-    ctx.lineTo(pTop[2].x, pTop[2].y);
-    ctx.lineTo(pBot2.x, pBot2.y);
-    var pBot1 = project(bw, 0, 0);
-    ctx.lineTo(pBot1.x, pBot1.y);
-    ctx.closePath();
-    ctx.fill();
-
-    // 2. Верхняя плоскость платы (паяльная маска)
-    ctx.fillStyle = mask.bg;
-    ctx.beginPath();
-    ctx.moveTo(pTop[0].x, pTop[0].y);
-    ctx.lineTo(pTop[1].x, pTop[1].y);
-    ctx.lineTo(pTop[2].x, pTop[2].y);
-    ctx.lineTo(pTop[3].x, pTop[3].y);
-    ctx.closePath();
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(255,255,255,0.15)';
-    ctx.lineWidth = 1;
-    ctx.stroke();
-
-    // 3. Медные дорожки под маской (с лёгким рельефом)
-    ctx.strokeStyle = 'rgba(215, 170, 70, 0.4)';
-    ctx.lineCap = 'round';
-    data.fcu.forEach(function (el) {
-      if (el.type === 'line') {
-        var a = project(el.x1, el.y1, thickness);
-        var b = project(el.x2, el.y2, thickness);
-        ctx.lineWidth = Math.max(1.5, (el.width || 0.4) * zoom * 0.8);
-        ctx.beginPath();
-        ctx.moveTo(a.x, a.y);
-        ctx.lineTo(b.x, b.y);
-        ctx.stroke();
-      }
-    });
-
-    // 4. Открытые контактные площадки (ENIG Gold / HASL)
-    ctx.fillStyle = padCol;
-    data.fcu.forEach(function (el) {
-      if (el.type === 'pad') {
-        var p = project(el.x, el.y, thickness);
-        var pw = el.w * zoom * 0.9, ph = el.h * zoom * 0.9;
-        ctx.fillRect(p.x - pw / 2, p.y - ph / 2, pw, ph);
-      } else if (el.type === 'pad_th') {
-        var pt = project(el.x, el.y, thickness);
-        ctx.beginPath();
-        ctx.arc(pt.x, pt.y, el.r * zoom * 0.9, 0, Math.PI * 2);
-        ctx.fill();
-      }
-    });
-
-    // 5. Отверстия (Drill)
-    ctx.fillStyle = '#060a08';
-    data.drill.forEach(function (el) {
-      var pt = project(el.x, el.y, thickness);
-      ctx.beginPath();
-      ctx.arc(pt.x, pt.y, el.dia / 2 * zoom * 0.9, 0, Math.PI * 2);
-      ctx.fill();
-    });
-
-    // 6. Шелкография на 3D плате
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-    data.fsilk.forEach(function (el) {
-      if (el.type === 'text') {
-        var pt = project(el.x, el.y, thickness);
-        ctx.font = Math.max(9, (el.size || 1.1) * zoom * 0.75) + 'px monospace';
-        ctx.textAlign = 'center';
-        ctx.fillText(el.str, pt.x, pt.y);
-      }
-    });
-
-    // 7. 3D-модели электронных компонентов
-    if (view3D.showComponents) {
-      data.board.components.forEach(function (c) {
-        var pt = project(c.x, c.y, thickness + 0.8);
-        if (c.package === 'soic8') {
-          // Корпус микросхемы
-          ctx.fillStyle = '#1c1c1f';
-          var cw = 5.0 * zoom * 0.8, ch = 4.0 * zoom * 0.8;
-          ctx.fillRect(pt.x - cw / 2, pt.y - ch / 2, cw, ch);
-          // Белая точка первого вывода
-          ctx.fillStyle = '#ffffff';
-          ctx.beginPath();
-          ctx.arc(pt.x - cw / 2 + 3, pt.y - ch / 2 + 3, 1.5, 0, Math.PI * 2);
-          ctx.fill();
-          // Надпись маркировки
-          ctx.font = '8px monospace';
-          ctx.fillStyle = '#a0a0a0';
-          ctx.textAlign = 'center';
-          ctx.fillText(c.val, pt.x, pt.y + 2);
-        } else if (c.package === 'r0805' || c.package === 'c0805') {
-          // SMD чип-компонент
-          var rw = (c.rot ? 1.2 : 2.0) * zoom * 0.8;
-          var rh = (c.rot ? 2.0 : 1.2) * zoom * 0.8;
-          ctx.fillStyle = c.package === 'c0805' ? '#a57348' : '#222222';
-          ctx.fillRect(pt.x - rw / 2, pt.y - rh / 2, rw, rh);
-          // Серебристые металлические выводы
-          ctx.fillStyle = '#d0d4d8';
-          if (!c.rot) {
-            ctx.fillRect(pt.x - rw / 2, pt.y - rh / 2, rw * 0.25, rh);
-            ctx.fillRect(pt.x + rw / 4, pt.y - rh / 2, rw * 0.25, rh);
-          } else {
-            ctx.fillRect(pt.x - rw / 2, pt.y - rh / 2, rw, rh * 0.25);
-            ctx.fillRect(pt.x - rw / 2, pt.y + rh / 4, rw, rh * 0.25);
-          }
-        } else if (c.package === 'led0805') {
-          // Светодиод
-          ctx.fillStyle = '#333';
-          ctx.fillRect(pt.x - 4, pt.y - 4, 8, 8);
-          ctx.fillStyle = '#ff3b30'; // линза
-          ctx.beginPath();
-          ctx.arc(pt.x, pt.y, 3, 0, Math.PI * 2);
-          ctx.fill();
-        }
-      });
+    var scene = env.scene;
+    scene.innerHTML = '';
+    scene.style.width = W + 'px'; scene.style.height = H + 'px';
+    var t = 1.6 * k, top = face('top'), bot = face('bottom');
+    // торец: силуэт платы, повторённый по толщине
+    var edge = surface(2, W, H);
+    edge.ctx.setTransform(T[0], 0, 0, T[1], T[2], T[3]);
+    edge.ctx.fillStyle = '#cbbd8b'; edge.ctx.fill(outlinePath(b), 'evenodd');
+    b.layers.filter(function (l) { return l.kind === 'drill'; }).forEach(function (l) { paint(edge.ctx, T, items(l), '#000', true); });
+    var n = Math.max(3, Math.min(14, Math.round(t / 1.5)));
+    for (var i = 0; i < n; i++) {
+      var sl = document.createElement('canvas'); sl.width = W; sl.height = H;
+      var sc = sl.getContext('2d'); sc.drawImage(edge.c, 0, 0);
+      sc.globalCompositeOperation = 'source-atop'; sc.fillStyle = 'rgba(0,0,0,' + (0.12 + 0.25 * Math.abs(i / (n - 1) - 0.5)) + ')'; sc.fillRect(0, 0, W, H);
+      sl.style.transform = 'translateZ(' + (-t / 2 + t * i / (n - 1)).toFixed(2) + 'px)';
+      scene.appendChild(sl);
     }
-
-    if (view3D.autoRotate) {
-      view3D.rotY += 0.008;
-      anim3dId = requestAnimationFrame(function () { render3D(canvas); });
-    }
+    bot.style.transform = 'rotateY(180deg) translateZ(' + (t / 2 + 0.3) + 'px)';
+    top.style.transform = 'translateZ(' + (t / 2 + 0.3) + 'px)';
+    scene.appendChild(bot); scene.appendChild(top);
+    env.size3 = [W, H];
+    st.r3.z = 0;
+    apply3D();
+  }
+  function apply3D() {
+    if (!env || !env.size3) return;
+    var r = st.r3, box = env.stage.getBoundingClientRect();
+    var fitZ = Math.min(box.width * 0.78 / env.size3[0], box.height * 0.78 / env.size3[1]);
+    if (!r.z) r.z = fitZ;
+    env.scene.style.transform = 'translate(-50%, -50%) scale(' + r.z.toFixed(4) + ') rotateX(' + r.rx.toFixed(1) + 'deg) rotateZ(' + r.rz.toFixed(1) + 'deg)';
+  }
+  function spin() {
+    if (!env || !st.r3.spin || st.mode !== '3d') { if (env) env.spinRaf = 0; return; }
+    st.r3.rz += 0.35; apply3D();
+    env.spinRaf = requestAnimationFrame(spin);
   }
 
-  /* =========================================================
-     Представление KM.views.gerber
-     ========================================================= */
+  /* =================== загрузка =================== */
+  function readFiles(list) {
+    return Promise.all(Array.prototype.map.call(list, function (f) {
+      return f.arrayBuffer().then(function (buf) {
+        var u8 = new Uint8Array(buf);
+        if (u8[0] === 0x50 && u8[1] === 0x4b) return G.unzip(buf);
+        return [{ name: f.name, bytes: u8 }];
+      });
+    })).then(function (arr) { return [].concat.apply([], arr); });
+  }
+  function useBoard(files, source, demo) {
+    var b = G.board(files);
+    if (!b.layers.length) throw new Error('В файлах не нашлось слоёв Gerber или сверловки' + (b.skipped.length ? ': ' + b.skipped.slice(0, 3).join('; ') : ''));
+    b.vis = {};
+    b.report = G.report(b);
+    st.board = b; st.source = source; st.demo = demo || null; st.meas = []; st.view = null;
+    if (env) { panels(); if (st.mode === '3d') build3D(); else fit(); }
+  }
+  function loadDemo(id) {
+    var d = DEMOS.find(function (x) { return x.id === id; }) || DEMOS[0];
+    setStatus('Загружаю «' + d.title + '»…');
+    return fetch(d.file).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.arrayBuffer(); })
+      .then(G.unzip).then(function (files) { useBoard(files, d.title, d.id); setStatus(''); })
+      .catch(function (e) {
+        setStatus(location.protocol === 'file:' ? 'Демо-платы загружаются, когда сайт открыт по http(s). Откройте свои файлы кнопкой «Открыть Gerber / ZIP».' : 'Не удалось загрузить демо: ' + e.message);
+      });
+  }
+  function loadUser(list) {
+    if (!list || !list.length) return;
+    setStatus('Читаю файлы…');
+    readFiles(list).then(function (files) {
+      useBoard(files, list.length === 1 ? list[0].name : 'Ваши файлы (' + list.length + ')');
+      setStatus('');
+      KM.ui.toast('Плата загружена', st.board.layers.length + ' слоёв · ' + fmt(st.board.report.w) + '×' + fmt(st.board.report.h) + ' мм', '📐');
+    }).catch(function (e) { setStatus(''); KM.ui.toast('Не получилось открыть', e.message, '⚠️'); });
+  }
+  function setStatus(t) { if (env) { env.status.textContent = t; env.status.hidden = !t; } }
+
+  /* =================== панели =================== */
+  function panels() {
+    if (!env) return;
+    var b = st.board;
+    KM.$$('[data-demo]', env.root).forEach(function (el) { el.setAttribute('aria-pressed', el.dataset.demo === st.demo); });
+    env.src.textContent = b ? st.source : '—';
+    var dl = KM.$('#gvDl', env.root);
+    var demo = DEMOS.find(function (x) { return x.id === st.demo; });
+    dl.hidden = !demo; if (demo) dl.href = demo.file;
+    if (!b) return;
+    KM.$('#gvLayers', env.root).innerHTML = b.layers.slice().sort(function (a, c) { return STYLE[c.layer].o - STYLE[a.layer].o; }).map(function (l) {
+      var key = l.layer + '|' + l.name, sty = STYLE[l.layer];
+      var what = l.kind === 'drill' ? (l.plated ? 'PTH' : 'NPTH') + ' · ' + (l.holes.length + l.slots.length) + ' отв.' : sty.n;
+      return '<label class="gv-layer"><input type="checkbox" data-key="' + KM.esc(key) + '"' + (b.vis[key] === false ? '' : ' checked') + '>' +
+        '<span class="gv-sw" style="background:' + sty.c + '"></span><span class="gv-ln"><b>' + KM.esc(what) + '</b><span>' + KM.esc(l.name) + '</span></span></label>';
+    }).join('') + (b.empty.length ? '<p class="tiny mb0">Пустые слои: ' + KM.esc(b.empty.join(', ')) + '</p>' : '') +
+      (b.skipped.length ? '<p class="tiny mb0">Пропущено: ' + KM.esc(b.skipped.join('; ')) + '</p>' : '');
+    KM.$$('#gvLayers input', env.root).forEach(function (cb) {
+      cb.onchange = function () { b.vis[cb.dataset.key] = cb.checked; if (st.mode === '3d') build3D(); else draw(); };
+    });
+    var r = b.report, icon = { ok: '✅', warn: '⚠️', bad: '❌' };
+    var warns = [].concat.apply([], b.layers.map(function (l) { return l.warnings.map(function (w) { return l.name + ': ' + w; }); }));
+    KM.$('#gvReport', env.root).innerHTML =
+      '<div class="gv-dims"><div><b>' + fmt(r.w) + ' × ' + fmt(r.h) + '</b><span>мм</span></div><div><b>' + r.copper + '</b><span>слоя меди</span></div><div><b>' + (r.pth + r.npth) + '</b><span>отверстий</span></div></div>' +
+      '<ul class="gv-checks">' + r.checks.map(function (c) { return '<li class="' + c[0] + '"><span aria-hidden="true">' + icon[c[0]] + '</span>' + KM.esc(c[1]) + '</li>'; }).join('') + '</ul>' +
+      (Object.keys(r.tools).length ? '<details><summary>Диаметры отверстий</summary><table class="gv-tools">' + Object.keys(r.tools).sort(function (a, c) { return parseFloat(a) - parseFloat(c); }).map(function (t) { return '<tr><td>⌀ ' + t.replace('.', ',') + ' мм</td><td>' + r.tools[t] + ' шт.</td></tr>'; }).join('') + '</table></details>' : '') +
+      (warns.length ? '<p class="tiny mb0">' + KM.esc(warns.join('; ')) + '</p>' : '');
+  }
+  function setMode(m) {
+    st.mode = m; st.meas = [];
+    KM.$$('[data-mode]', env.root).forEach(function (el) { el.setAttribute('aria-selected', el.dataset.mode === m); });
+    env.stage2.hidden = m === '3d'; env.stage.hidden = m !== '3d';
+    KM.$$('.gv-2d-only', env.root).forEach(function (el) { el.hidden = m === '3d'; });
+    KM.$$('.gv-3d-only', env.root).forEach(function (el) { el.hidden = m !== '3d'; });
+    KM.$('#gvLook', env.root).hidden = m === 'layers';
+    if (st.board) panels();
+    if (m === '3d') { build3D(); if (st.r3.spin && !env.spinRaf) spin(); }
+    else { st.view = null; draw(); }
+  }
+
+  /* =================== разметка =================== */
   KM.views.gerber = {
     render: function () {
-      var curBoard = DEMO_BOARDS[activeDemo];
-      return '<div class="page full-page gerber-view">' +
-        '<div class="gerber-header">' +
-          '<div class="gh-info">' +
-            '<h1>👁️ Интерактивный Gerber & 3D Просмотрщик</h1>' +
-            '<p class="muted">Проверка слоёв KiCad (F.Cu, B.Cu, Silkscreen, Edge.Cuts, Drill) и фотореалистичная 3D-визуализация платы.</p>' +
+      var lesson = (KM.data.lessons || []).find(function (l) { return /gerber/i.test(l.title); });
+      return '<div class="page gv-page"><div class="page-head"><div class="eyebrow">Инструменты</div><h1>Просмотр Gerber и 3D</h1>' +
+        '<p>Проверьте файлы для завода перед заказом: откройте ZIP из KiCad (или отдельные .gbr/.gtl/.drl), посмотрите плату сверху и снизу, по слоям и в 3D. Файлы не покидают ваш браузер.</p></div>' +
+        '<div class="gv-wrap">' +
+          '<div class="gv-main">' +
+            '<div class="gv-bar">' +
+              '<div class="tabs gv-tabs" role="tablist">' + MODES.map(function (m) { return '<button role="tab" data-mode="' + m[0] + '" aria-selected="' + (st.mode === m[0]) + '">' + m[1] + '</button>'; }).join('') + '</div>' +
+              '<label class="btn sm primary gv-open">📂 Открыть Gerber / ZIP<input type="file" id="gvFile" multiple hidden accept=".zip,.gbr,.ger,.gtl,.gbl,.gts,.gbs,.gto,.gbo,.gtp,.gbp,.gm1,.gko,.gml,.drl,.xln,.txt,.cmp,.sol,.g1,.g2,.g3,.g4"></label>' +
+            '</div>' +
+            '<div class="gv-view" id="gvView">' +
+              '<div class="gv-stage2" id="gvStage2"><canvas id="gvCanvas" aria-label="Изображение печатной платы"></canvas></div>' +
+              '<div class="gv-stage3" id="gvStage3" hidden><div class="gv-scene" id="gvScene"></div></div>' +
+              '<div class="gv-tools-float">' +
+                '<button class="gv-ic" data-act="zin" title="Приблизить" aria-label="Приблизить">+</button><button class="gv-ic" data-act="zout" title="Отдалить" aria-label="Отдалить">−</button>' +
+                '<button class="gv-ic" data-act="fit" title="Вся плата (двойной щелчок)" aria-label="Показать всю плату">⤢</button>' +
+                '<button class="gv-ic gv-2d-only" data-act="measure" title="Линейка: два щелчка по плате" aria-label="Измерение" aria-pressed="false">📏</button>' +
+                '<button class="gv-ic gv-3d-only" data-act="spin" title="Вращение" aria-label="Вращение" aria-pressed="false" hidden>⟳</button>' +
+                '<button class="gv-ic" data-act="shot" title="Сохранить PNG" aria-label="Сохранить картинку">📸</button>' +
+              '</div>' +
+              '<div class="gv-3d-only gv-views3" hidden><button class="btn sm" data-v3="iso">Изометрия</button><button class="btn sm" data-v3="top">Сверху</button><button class="btn sm" data-v3="bottom">Снизу</button><button class="btn sm" data-v3="side">Сбоку</button></div>' +
+              '<div class="gv-coord gv-2d-only" id="gvCoord"></div>' +
+              '<div class="gv-status" id="gvStatus" hidden></div>' +
+              '<div class="gv-drop" id="gvDrop" hidden>Отпустите файлы, чтобы открыть</div>' +
+            '</div>' +
+            '<p class="tiny mt-s mb0">Колесо или щипок — масштаб, перетаскивание — сдвиг, двойной щелчок — вся плата. В 3D плата поворачивается мышью или пальцем. Компоненты в 3D не показываются: в Gerber их нет — так же выглядит превью на сайтах заводов.</p>' +
           '</div>' +
-          '<div class="gh-actions">' +
-            '<div class="segmented-control" role="tablist">' +
-              '<button type="button" class="sc-btn ' + (currentTab === '2d' ? 'active' : '') + '" data-tab="2d">2D Gerber Слои</button>' +
-              '<button type="button" class="sc-btn ' + (currentTab === '3d' ? 'active' : '') + '" data-tab="3d">3D Модель Платы</button>' +
-            '</div>' +
-            '<label class="btn btn-outline" style="cursor:pointer;" title="Загрузить Gerber файлы или ZIP-архив">' +
-              '📁 Открыть Gerber / ZIP' +
-              '<input type="file" id="gerberFileInput" multiple accept=".gbr,.gtl,.gbl,.gto,.gbo,.gts,.gbs,.gm1,.drl,.xln,.txt,.zip" hidden>' +
-            '</label>' +
-            '<button type="button" class="btn btn-primary" id="btnExportSnapshot">📸 Снимок PNG</button>' +
-          '</div>' +
-        '</div>' +
-
-        '<div class="gerber-body">' +
-          // Боковая панель управления
-          '<aside class="gerber-sidebar">' +
-            '<div class="card p-3">' +
-              '<h3>📦 Образцы плат KiCad</h3>' +
-              '<div class="board-selector">' +
-                Object.keys(DEMO_BOARDS).map(function (k) {
-                  var b = DEMO_BOARDS[k];
-                  return '<button type="button" class="board-card-btn ' + (activeDemo === k ? 'active' : '') + '" data-demo="' + k + '">' +
-                    '<b>' + KM.esc(b.title.split('(')[0].trim()) + '</b>' +
-                    '<span class="tiny muted">' + b.width + ' × ' + b.height + ' мм · ' + KM.esc(b.desc) + '</span>' +
-                  '</button>';
-                }).join('') +
-              '</div>' +
-            '</div>' +
-
-            // Панель для режима 2D: управление слоями
-            '<div class="card p-3 tab-panel-2d" ' + (currentTab !== '2d' ? 'hidden' : '') + '>' +
-              '<h3>🎨 Слои платы (Layers)</h3>' +
-              '<div class="layer-list">' +
-                layers.map(function (l) {
-                  return '<div class="layer-item" data-layer="' + l.id + '">' +
-                    '<label class="layer-check">' +
-                      '<input type="checkbox" ' + (l.visible ? 'checked' : '') + ' data-layer-toggle="' + l.id + '">' +
-                      '<span class="layer-swatch" style="background:' + l.color + '"></span>' +
-                      '<span class="layer-title">' + KM.esc(l.name) + '</span>' +
-                    '</label>' +
-                    '<input type="range" min="0.1" max="1" step="0.05" value="' + l.opacity + '" data-layer-opacity="' + l.id + '" title="Прозрачность">' +
-                  '</div>';
-                }).join('') +
-              '</div>' +
-              '<div class="mt-3 row gap-2">' +
-                '<button type="button" class="btn btn-sm btn-ghost" id="btnAllLayers">Вкл все</button>' +
-                '<button type="button" class="btn btn-sm btn-ghost" id="btnResetView">Сбросить вид</button>' +
-              '</div>' +
-            '</div>' +
-
-            // Панель для режима 3D: свойства отделки
-            '<div class="card p-3 tab-panel-3d" ' + (currentTab !== '3d' ? 'hidden' : '') + '>' +
-              '<h3>🛠️ Отделка и цвет маски</h3>' +
-              '<label class="field-label mt-2">Цвет паяльной маски:</label>' +
-              '<div class="mask-color-picker">' +
-                Object.keys(MASK_COLORS).map(function (ck) {
-                  var c = MASK_COLORS[ck];
-                  return '<button type="button" class="mask-chip ' + (view3D.maskColor === ck ? 'active' : '') + '" data-mask="' + ck + '" style="background:' + c.bg + '" title="' + c.name + '"></button>';
-                }).join('') +
-              '</div>' +
-              '<label class="field-label mt-3">Покрытие площадок:</label>' +
-              '<div class="segmented-control mt-1">' +
-                '<button type="button" class="sc-btn ' + (view3D.finish === 'gold' ? 'active' : '') + '" data-finish="gold">🥇 ENIG Золото</button>' +
-                '<button type="button" class="sc-btn ' + (view3D.finish === 'silver' ? 'active' : '') + '" data-finish="silver">🥈 HASL Олово</button>' +
-              '</div>' +
-              '<label class="field-label mt-3">' +
-                '<input type="checkbox" id="chkShowComponents" ' + (view3D.showComponents ? 'checked' : '') + '> Показать 3D-компоненты' +
-              '</label>' +
-              '<label class="field-label mt-1">' +
-                '<input type="checkbox" id="chkAutoRotate" ' + (view3D.autoRotate ? 'checked' : '') + '> Авто-вращение' +
-              '</label>' +
-              '<div class="row gap-2 mt-3">' +
-                '<button type="button" class="btn btn-sm btn-outline" id="btnViewTop">Вид сверху</button>' +
-                '<button type="button" class="btn btn-sm btn-outline" id="btnViewBottom">Вид снизу</button>' +
-              '</div>' +
-            '</div>' +
+          '<aside class="gv-side">' +
+            '<section class="card"><h3>📦 Плата</h3><div class="gv-demos">' + DEMOS.map(function (d) { return '<button class="gv-demo" data-demo="' + d.id + '" aria-pressed="false"><b>' + d.title + '</b><span>' + d.desc + '</span></button>'; }).join('') + '</div>' +
+              '<p class="tiny mb0 mt-s">Открыто: <b id="gvSrc">—</b></p><a class="small" id="gvDl" download hidden>⬇️ Скачать Gerber этой платы (ZIP)</a></section>' +
+            '<section class="card" id="gvLook"><h3>🎨 Вид платы</h3><div class="gv-masks">' + Object.keys(MASKS).map(function (k) { return '<button class="gv-mask" data-mask="' + k + '" title="' + MASKS[k][0] + '" aria-label="Маска: ' + MASKS[k][0] + '" aria-pressed="' + (st.mask === k) + '" style="background:' + MASKS[k][1] + '"></button>'; }).join('') + '</div>' +
+              '<div class="chips mt-s">' + Object.keys(FINISH).map(function (k) { return '<button class="chip" data-finish="' + k + '" aria-pressed="' + (st.finish === k) + '">' + FINISH[k][0] + '</button>'; }).join('') + '</div></section>' +
+            '<section class="card"><h3>🧾 Проверка перед заказом</h3><div id="gvReport"><p class="small muted mb0">Откройте плату.</p></div></section>' +
+            '<section class="card"><h3>🗂️ Слои</h3><div id="gvLayers" class="gv-layers"><p class="small muted mb0">—</p></div></section>' +
+            (lesson ? '<a class="small" href="#/lesson/' + lesson.id + '">📘 Урок: ' + KM.esc(lesson.title) + '</a>' : '') +
           '</aside>' +
-
-          // Центральная область холста
-          '<main class="gerber-viewport-wrap">' +
-            '<div class="viewport-toolbar">' +
-              '<div class="row gap-2">' +
-                '<button type="button" class="btn btn-sm ' + (activeTool === 'pan' ? 'btn-primary' : 'btn-outline') + '" id="toolPan" title="Перемещение (ЛКМ / Колёсико)">✋ Перемещение</button>' +
-                '<button type="button" class="btn btn-sm ' + (activeTool === 'measure' ? 'btn-primary' : 'btn-outline') + '" id="toolMeasure" title="Измерение расстояний (Линейка)">📐 Измерение (мм)</button>' +
-              '</div>' +
-              '<div class="row gap-2 status-text">' +
-                '<span id="coordDisplay">X: 0.00 мм | Y: 0.00 мм</span>' +
-                '<span class="badge">' + curBoard.width + ' × ' + curBoard.height + ' мм</span>' +
-              '</div>' +
-            '</div>' +
-
-            '<div class="viewport-canvas-container" id="canvasContainer">' +
-              '<canvas id="gerberCanvas2D" class="gerber-canvas" ' + (currentTab !== '2d' ? 'style="display:none;"' : '') + '></canvas>' +
-              '<canvas id="gerberCanvas3D" class="gerber-canvas" ' + (currentTab !== '3d' ? 'style="display:none;"' : '') + '></canvas>' +
-              '<div class="drop-overlay" id="dropOverlay" hidden>Перетащите сюда файлы Gerber или архивы .ZIP</div>' +
-            '</div>' +
-          '</main>' +
-        '</div>' +
-      '</div>';
+        '</div></div>';
     },
 
-    mount: function (el) {
-      var c2d = el.querySelector('#gerberCanvas2D');
-      var c3d = el.querySelector('#gerberCanvas3D');
-      var container = el.querySelector('#canvasContainer');
-      var coordDisplay = el.querySelector('#coordDisplay');
+    mount: function (root) {
+      env = { root: root, dpr: Math.min(2, window.devicePixelRatio || 1), raf: 0, spinRaf: 0 };
+      env.cv = KM.$('#gvCanvas', root); env.view = KM.$('#gvView', root);
+      env.stage2 = KM.$('#gvStage2', root); env.stage = KM.$('#gvStage3', root); env.scene = KM.$('#gvScene', root);
+      env.status = KM.$('#gvStatus', root); env.src = KM.$('#gvSrc', root);
+      var mine = env;
 
-      function resize() {
-        if (!container) return;
-        var rect = container.getBoundingClientRect();
-        var dpr = window.devicePixelRatio || 1;
-        [c2d, c3d].forEach(function (cv) {
-          if (cv) {
-            cv.width = rect.width * dpr;
-            cv.height = rect.height * dpr;
-            cv.style.width = rect.width + 'px';
-            cv.style.height = rect.height + 'px';
-            var ctx = cv.getContext('2d');
-            ctx.scale(dpr, dpr);
-          }
-        });
-        if (currentTab === '2d') render2D(c2d);
-        else render3D(c3d);
+      KM.$$('[data-mode]', root).forEach(function (b) { b.onclick = function () { setMode(b.dataset.mode); }; });
+      KM.$$('[data-demo]', root).forEach(function (b) { b.onclick = function () { loadDemo(b.dataset.demo); }; });
+      KM.$('#gvFile', root).onchange = function () { loadUser(Array.prototype.slice.call(this.files)); this.value = ''; };
+      KM.$$('[data-mask]', root).forEach(function (b) {
+        b.onclick = function () { st.mask = b.dataset.mask; KM.$$('[data-mask]', root).forEach(function (x) { x.setAttribute('aria-pressed', x === b); }); st.mode === '3d' ? build3D() : draw(); };
+      });
+      KM.$$('[data-finish]', root).forEach(function (b) {
+        b.onclick = function () { st.finish = b.dataset.finish; KM.$$('[data-finish]', root).forEach(function (x) { x.setAttribute('aria-pressed', x === b); }); st.mode === '3d' ? build3D() : draw(); };
+      });
+      KM.$$('[data-v3]', root).forEach(function (b) {
+        b.onclick = function () { var v = { iso: [55, -25], top: [0, 0], bottom: [180, 0], side: [86, 0] }[b.dataset.v3]; st.r3.rx = v[0]; st.r3.rz = v[1]; apply3D(); };
+      });
+
+      function zoom(f, cx, cy) {
+        if (st.mode === '3d') { st.r3.z = Math.max(0.05, Math.min(20, st.r3.z * f)); apply3D(); return; }
+        if (!st.view) return;
+        var v = st.view, ns = Math.max(0.5, Math.min(400, v.s * f)), q = ns / v.s;
+        if (cx == null) { cx = env.cv.clientWidth / 2; cy = env.cv.clientHeight / 2; }
+        v.ox = cx - (cx - v.ox) * q; v.oy = cy - (cy - v.oy) * q; v.s = ns;
+        draw();
       }
-      window.addEventListener('resize', resize);
-      setTimeout(resize, 50);
-
-      // Переключение вкладок 2D / 3D
-      el.querySelectorAll('.sc-btn[data-tab]').forEach(function (btn) {
-        btn.onclick = function () {
-          currentTab = this.dataset.tab;
-          el.querySelectorAll('.sc-btn[data-tab]').forEach(function (b) { b.classList.toggle('active', b === btn); });
-          el.querySelector('.tab-panel-2d').hidden = currentTab !== '2d';
-          el.querySelector('.tab-panel-3d').hidden = currentTab !== '3d';
-          c2d.style.display = currentTab === '2d' ? 'block' : 'none';
-          c3d.style.display = currentTab === '3d' ? 'block' : 'none';
-          if (currentTab === '2d') {
-            if (anim3dId) { cancelAnimationFrame(anim3dId); anim3dId = null; }
-            render2D(c2d);
-          } else {
-            render3D(c3d);
-          }
+      KM.$$('[data-act]', root).forEach(function (b) {
+        b.onclick = function () {
+          var a = b.dataset.act;
+          if (a === 'zin') zoom(1.35); else if (a === 'zout') zoom(1 / 1.35);
+          else if (a === 'fit') { if (st.mode === '3d') { st.r3.z = 0; apply3D(); } else fit(); }
+          else if (a === 'measure') { st.tool = st.tool === 'measure' ? 'pan' : 'measure'; st.meas = []; b.setAttribute('aria-pressed', st.tool === 'measure'); env.view.classList.toggle('measuring', st.tool === 'measure'); draw(); }
+          else if (a === 'spin') { st.r3.spin = !st.r3.spin; b.setAttribute('aria-pressed', st.r3.spin); if (st.r3.spin && !env.spinRaf) spin(); }
+          else if (a === 'shot') snapshot();
         };
       });
 
-      // Переключение демо-плат
-      el.querySelectorAll('.board-card-btn').forEach(function (btn) {
-        btn.onclick = function () {
-          activeDemo = this.dataset.demo;
-          el.querySelectorAll('.board-card-btn').forEach(function (b) { b.classList.toggle('active', b === btn); });
-          measurePoints = [];
-          if (currentTab === '2d') render2D(c2d); else render3D(c3d);
-        };
+      // указатель: сдвиг, щипок, линейка; в 3D — поворот
+      var ptrs = {}, last = null, moved = 0, pinch = null;
+      function pos(e) { var r = env.view.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; }
+      env.view.addEventListener('pointerdown', function (e) {
+        if (e.target.closest('button,label,a')) return;
+        env.view.setPointerCapture(e.pointerId);
+        ptrs[e.pointerId] = pos(e); last = pos(e); moved = 0;
+        var ids = Object.keys(ptrs);
+        if (ids.length === 2) { var a = ptrs[ids[0]], c = ptrs[ids[1]]; pinch = { d: Math.hypot(a[0] - c[0], a[1] - c[1]) }; }
       });
-
-      // Управление слоями
-      el.querySelectorAll('[data-layer-toggle]').forEach(function (chk) {
-        chk.onchange = function () {
-          var id = this.dataset.layerToggle;
-          var l = layers.find(function (x) { return x.id === id; });
-          if (l) l.visible = this.checked;
-          render2D(c2d);
-        };
-      });
-
-      el.querySelectorAll('[data-layer-opacity]').forEach(function (slider) {
-        slider.oninput = function () {
-          var id = this.dataset.layerOpacity;
-          var l = layers.find(function (x) { return x.id === id; });
-          if (l) l.opacity = parseFloat(this.value);
-          render2D(c2d);
-        };
-      });
-
-      var btnAll = el.querySelector('#btnAllLayers');
-      if (btnAll) {
-        btnAll.onclick = function () {
-          layers.forEach(function (l) { l.visible = true; });
-          el.querySelectorAll('[data-layer-toggle]').forEach(function (c) { c.checked = true; });
-          render2D(c2d);
-        };
-      }
-
-      var btnReset = el.querySelector('#btnResetView');
-      if (btnReset) {
-        btnReset.onclick = function () {
-          view2D.scale = 6;
-          view2D.panX = 0;
-          view2D.panY = 0;
-          measurePoints = [];
-          render2D(c2d);
-        };
-      }
-
-      // Инструменты перемещения и линейки
-      var toolPan = el.querySelector('#toolPan');
-      var toolMeasure = el.querySelector('#toolMeasure');
-      if (toolPan && toolMeasure) {
-        toolPan.onclick = function () {
-          activeTool = 'pan';
-          toolPan.className = 'btn btn-sm btn-primary';
-          toolMeasure.className = 'btn btn-sm btn-outline';
-          measurePoints = [];
-          render2D(c2d);
-        };
-        toolMeasure.onclick = function () {
-          activeTool = 'measure';
-          toolMeasure.className = 'btn btn-sm btn-primary';
-          toolPan.className = 'btn btn-sm btn-outline';
-          KM.ui.toast('Режим линейки', 'Кликните на две точки на плате для замера расстояния в мм', '📐');
-        };
-      }
-
-      // 3D Controls
-      el.querySelectorAll('.mask-chip').forEach(function (chip) {
-        chip.onclick = function () {
-          view3D.maskColor = this.dataset.mask;
-          el.querySelectorAll('.mask-chip').forEach(function (c) { c.classList.toggle('active', c === chip); });
-          render3D(c3d);
-        };
-      });
-
-      el.querySelectorAll('.sc-btn[data-finish]').forEach(function (btn) {
-        btn.onclick = function () {
-          view3D.finish = this.dataset.finish;
-          el.querySelectorAll('.sc-btn[data-finish]').forEach(function (b) { b.classList.toggle('active', b === btn); });
-          render3D(c3d);
-        };
-      });
-
-      var chkComp = el.querySelector('#chkShowComponents');
-      if (chkComp) {
-        chkComp.onchange = function () { view3D.showComponents = this.checked; render3D(c3d); };
-      }
-      var chkAuto = el.querySelector('#chkAutoRotate');
-      if (chkAuto) {
-        chkAuto.onchange = function () { view3D.autoRotate = this.checked; render3D(c3d); };
-      }
-
-      var btnTop = el.querySelector('#btnViewTop');
-      if (btnTop) {
-        btnTop.onclick = function () { view3D.rotX = 0; view3D.rotY = 0; render3D(c3d); };
-      }
-      var btnBottom = el.querySelector('#btnViewBottom');
-      if (btnBottom) {
-        btnBottom.onclick = function () { view3D.rotX = Math.PI; view3D.rotY = 0; render3D(c3d); };
-      }
-
-      // События мыши на 2D Canvas (Pan / Zoom / Measure)
-      c2d.addEventListener('mousedown', function (e) {
-        var rect = c2d.getBoundingClientRect();
-        var mx = e.clientX - rect.left;
-        var my = e.clientY - rect.top;
-        var w = rect.width, h = rect.height;
-        var ox = view2D.panX + w / 2;
-        var oy = view2D.panY + h / 2;
-        var boardX = (mx - ox) / view2D.scale;
-        var boardY = (my - oy) / view2D.scale;
-
-        if (activeTool === 'measure') {
-          if (measurePoints.length >= 2) measurePoints = [];
-          measurePoints.push({ x: boardX, y: boardY });
-          render2D(c2d);
-          return;
+      env.view.addEventListener('pointermove', function (e) {
+        var p = pos(e);
+        if (st.mode !== '3d' && st.view && st.board) {
+          var q = toBoard(p[0], p[1]), bx = st.board.box;
+          env.coord = env.coord || KM.$('#gvCoord', root);
+          env.coord.textContent = 'X ' + fmt(q[0] - bx[0]) + '  Y ' + fmt(q[1] - bx[1]) + ' мм';
+          if (st.tool === 'measure' && st.meas.length === 1) { st.hover = q; draw(); }
         }
-
-        view2D.dragging = true;
-        view2D.lastMouseX = e.clientX;
-        view2D.lastMouseY = e.clientY;
-      });
-
-      window.addEventListener('mousemove', function (e) {
-        if (!c2d) return;
-        var rect = c2d.getBoundingClientRect();
-        var mx = e.clientX - rect.left;
-        var my = e.clientY - rect.top;
-        var w = rect.width, h = rect.height;
-        var ox = view2D.panX + w / 2;
-        var oy = view2D.panY + h / 2;
-        var boardX = (mx - ox) / view2D.scale;
-        var boardY = (my - oy) / view2D.scale;
-
-        mouseCoord = { x: boardX, y: boardY, valid: mx >= 0 && my >= 0 && mx <= w && my <= h };
-        if (coordDisplay && mouseCoord.valid) {
-          coordDisplay.textContent = 'X: ' + boardX.toFixed(2) + ' мм | Y: ' + boardY.toFixed(2) + ' мм';
+        if (!ptrs[e.pointerId]) return;
+        ptrs[e.pointerId] = p;
+        var ids = Object.keys(ptrs);
+        if (ids.length === 2 && pinch) {
+          var a = ptrs[ids[0]], c = ptrs[ids[1]], d = Math.hypot(a[0] - c[0], a[1] - c[1]);
+          if (pinch.d > 0) zoom(d / pinch.d, (a[0] + c[0]) / 2, (a[1] + c[1]) / 2);
+          pinch.d = d; moved = 99; return;
         }
-
-        if (view2D.dragging) {
-          view2D.panX += e.clientX - view2D.lastMouseX;
-          view2D.panY += e.clientY - view2D.lastMouseY;
-          view2D.lastMouseX = e.clientX;
-          view2D.lastMouseY = e.clientY;
-          render2D(c2d);
-        } else if (activeTool === 'measure' && measurePoints.length === 1) {
-          render2D(c2d);
+        var dx = p[0] - last[0], dy = p[1] - last[1]; last = p; moved += Math.abs(dx) + Math.abs(dy);
+        if (st.mode === '3d') { st.r3.rz += dx * 0.4; st.r3.rx = Math.max(0, Math.min(180, st.r3.rx - dy * 0.4)); apply3D(); }
+        else if (st.view && (st.tool === 'pan' || moved > 6)) { st.view.ox += dx; st.view.oy += dy; draw(); }
+      });
+      function up(e) {
+        if (!ptrs[e.pointerId]) return;
+        delete ptrs[e.pointerId];
+        if (Object.keys(ptrs).length < 2) pinch = null;
+        if (st.tool === 'measure' && st.mode !== '3d' && moved < 6 && st.view) {
+          var p = pos(e), q = toBoard(p[0], p[1]);
+          st.meas = st.meas.length >= 2 ? [q] : st.meas.concat([q]);
+          st.hover = null; draw();
         }
-      });
-
-      window.addEventListener('mouseup', function () {
-        view2D.dragging = false;
-        view3D.dragging = false;
-      });
-
-      c2d.addEventListener('wheel', function (e) {
-        e.preventDefault();
-        var factor = e.deltaY < 0 ? 1.15 : 0.87;
-        view2D.scale = Math.max(1, Math.min(60, view2D.scale * factor));
-        render2D(c2d);
-      }, { passive: false });
-
-      // События мыши на 3D Canvas (Orbit / Zoom)
-      c3d.addEventListener('mousedown', function (e) {
-        view3D.dragging = true;
-        view3D.lastX = e.clientX;
-        view3D.lastY = e.clientY;
-      });
-
-      window.addEventListener('mousemove', function (e) {
-        if (view3D.dragging) {
-          var dx = e.clientX - view3D.lastX;
-          var dy = e.clientY - view3D.lastY;
-          view3D.rotY += dx * 0.008;
-          view3D.rotX += dy * 0.008;
-          view3D.lastX = e.clientX;
-          view3D.lastY = e.clientY;
-          render3D(c3d);
-        }
-      });
-
-      c3d.addEventListener('wheel', function (e) {
-        e.preventDefault();
-        var factor = e.deltaY < 0 ? 1.12 : 0.89;
-        view3D.zoom = Math.max(0.3, Math.min(4.0, view3D.zoom * factor));
-        render3D(c3d);
-      }, { passive: false });
-
-      // Загрузка локальных файлов Gerber / ZIP
-      var fileInput = el.querySelector('#gerberFileInput');
-      if (fileInput) {
-        fileInput.onchange = function (e) {
-          var files = e.target.files;
-          if (!files || !files.length) return;
-          Array.from(files).forEach(function (f) {
-            var reader = new FileReader();
-            reader.onload = function (ev) {
-              var text = ev.target.result;
-              var name = f.name.toLowerCase();
-              if (name.endsWith('.drl') || name.endsWith('.xln')) {
-                var drills = parseExcellonText(text);
-                KM.ui.toast('Загружена сверловка', f.name + ' (' + drills.length + ' отверстий)', '🕳️');
-              } else {
-                var cmds = parseGerberText(text);
-                KM.ui.toast('Загружен слой Gerber', f.name + ' (' + cmds.length + ' команд)', '📐');
-              }
-              render2D(c2d);
-            };
-            reader.readAsText(f);
-          });
-        };
       }
+      env.view.addEventListener('pointerup', up);
+      env.view.addEventListener('pointercancel', up);
+      env.view.addEventListener('dblclick', function (e) { if (!e.target.closest('button')) { if (st.mode === '3d') { st.r3.z = 0; apply3D(); } else fit(); } });
+      env.view.addEventListener('wheel', function (e) { e.preventDefault(); var p = pos(e); zoom(Math.pow(1.0015, -e.deltaY), p[0], p[1]); }, { passive: false });
 
-      // Drag & Drop
-      var dropOverlay = el.querySelector('#dropOverlay');
-      container.addEventListener('dragover', function (e) {
-        e.preventDefault();
-        dropOverlay.hidden = false;
-      });
-      container.addEventListener('dragleave', function () {
-        dropOverlay.hidden = true;
-      });
-      container.addEventListener('drop', function (e) {
-        e.preventDefault();
-        dropOverlay.hidden = true;
-        if (e.dataTransfer.files && e.dataTransfer.files.length) {
-          fileInput.files = e.dataTransfer.files;
-          fileInput.dispatchEvent(new Event('change'));
-        }
-      });
+      // перетаскивание файлов
+      var drop = KM.$('#gvDrop', root), depth = 0;
+      env.view.addEventListener('dragenter', function (e) { e.preventDefault(); depth++; drop.hidden = false; });
+      env.view.addEventListener('dragover', function (e) { e.preventDefault(); });
+      env.view.addEventListener('dragleave', function () { if (--depth <= 0) { depth = 0; drop.hidden = true; } });
+      env.view.addEventListener('drop', function (e) { e.preventDefault(); depth = 0; drop.hidden = true; loadUser(Array.prototype.slice.call(e.dataTransfer.files)); });
 
-      // Экспорт скриншота PNG
-      var btnExport = el.querySelector('#btnExportSnapshot');
-      if (btnExport) {
-        btnExport.onclick = function () {
-          var targetCanvas = currentTab === '2d' ? c2d : c3d;
-          targetCanvas.toBlob(function (blob) {
-            KM.download('kicad-' + activeDemo + '-' + currentTab + '.png', blob, 'image/png');
-            KM.ui.toast('Снимок сохранён', 'Изображение платы загружено', '📸');
-          });
-        };
-      }
+      env.ro = new ResizeObserver(function () { if (env !== mine) return; if (st.mode === '3d') { st.r3.z = 0; apply3D(); } else if (st.view) { fit(); } else draw(); });
+      env.ro.observe(env.view);
+
+      setMode(st.mode);
+      if (st.board) panels(); else loadDemo('blinker');
     },
 
     unmount: function () {
-      if (anim3dId) {
-        cancelAnimationFrame(anim3dId);
-        anim3dId = null;
-      }
+      if (!env) return;
+      if (env.raf) cancelAnimationFrame(env.raf);
+      if (env.spinRaf) cancelAnimationFrame(env.spinRaf);
+      if (env.ro) env.ro.disconnect();
+      env = null;
     }
   };
+
+  function snapshot() {
+    if (!st.board) return;
+    var name = (st.demo || 'board') + '-' + st.mode + '.png';
+    if (st.mode !== '3d') { env.cv.toBlob(function (b) { KM.download(name, b); }); return; }
+    // в 3D — верх и низ рядом
+    var c = KM.$$('canvas', env.scene), top = c[c.length - 1], bot = c[c.length - 2];
+    var out = document.createElement('canvas'), gap = 40;
+    out.width = top.width * 2 + gap * 3; out.height = top.height + gap * 2;
+    var x = out.getContext('2d');
+    x.fillStyle = '#1c2024'; x.fillRect(0, 0, out.width, out.height);
+    x.drawImage(top, gap, gap);
+    x.save(); x.translate(gap * 2 + top.width * 2, gap); x.scale(-1, 1); x.drawImage(bot, 0, 0); x.restore();
+    out.toBlob(function (b) { KM.download(name, b); });
+  }
 })();
