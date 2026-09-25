@@ -1,0 +1,24 @@
+{
+  "name": "KiCad Мастер Pro",
+  "short_name": "KiCad Мастер",
+  "description": "Интерактивный курс KiCad: уроки, практика, симулятор, компоненты, шаблоны.",
+  "lang": "ru",
+  "start_url": "./#/",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0c1311",
+  "theme_color": "#0f1a17",
+  "categories": ["education", "productivity"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ],
+  "shortcuts": [
+    { "name": "Уроки", "url": "./#/lessons" },
+    { "name": "Симулятор", "url": "./#/sim" },
+    { "name": "Справочник", "url": "./#/reference" }
+  ]
+}

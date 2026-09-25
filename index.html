@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="ru" data-theme="auto">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>KiCad Мастер Pro</title>
+<meta name="description" content="Интерактивный курс KiCad: уроки, практика, симулятор схем, библиотека компонентов, шаблоны и справочник.">
+<meta name="theme-color" content="#0f1a17">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="css/style.css">
+<script>
+  // Тема применяется до отрисовки, чтобы не было вспышки
+  try {
+    var s = JSON.parse(localStorage.getItem('km.v1') || '{}').settings || {};
+    if (s.theme) document.documentElement.dataset.theme = s.theme;
+    if (s.accent) document.documentElement.dataset.accent = s.accent;
+    if (s.fontScale) document.documentElement.style.setProperty('--font-scale', s.fontScale);
+    if (s.reduceMotion) document.documentElement.dataset.motion = 'reduce';
+    if (s.contrast) document.documentElement.dataset.contrast = 'high';
+  } catch (e) {}
+</script>
+</head>
+<body>
+<a class="skip-link" href="#main">Перейти к содержимому</a>
+
+<header class="topbar">
+  <button class="icon-btn menu-toggle" id="menuToggle" aria-label="Меню" aria-controls="sidebar" aria-expanded="false">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+  </button>
+  <a class="brand" href="#/">
+    <img src="icons/icon.svg" alt="" width="28" height="28">
+    <span>KiCad <b>Мастер Pro</b></span>
+  </a>
+  <form class="search" id="globalSearch" role="search">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+    <input type="search" id="searchInput" placeholder="Поиск: уроки, компоненты, термины…" aria-label="Поиск по сайту" autocomplete="off">
+    <div class="search-results" id="searchResults" role="listbox" hidden></div>
+  </form>
+  <div class="topbar-stats" id="topStats" aria-live="polite"></div>
+  <button class="icon-btn" id="themeToggle" aria-label="Переключить тему">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+  </button>
+</header>
+
+<div class="layout">
+  <nav class="sidebar" id="sidebar" aria-label="Разделы">
+    <ul id="navList"></ul>
+    <div class="sidebar-foot" id="sidebarFoot"></div>
+  </nav>
+  <div class="scrim" id="scrim" hidden></div>
+  <main id="main" tabindex="-1"></main>
+</div>
+
+<div class="toasts" id="toasts" aria-live="polite" aria-atomic="false"></div>
+<dialog id="modal" class="modal"></dialog>
+
+<!-- Данные -->
+<script>window.KM = window.KM || { data: {}, views: {} };</script>
+<script src="data/lessons.js"></script>
+<script src="data/lessons-2.js"></script>
+<script src="data/lessons-3.js"></script>
+<script src="data/lessons-adv.js"></script>
+<script src="data/figures.js"></script>
+<script src="data/demos.js"></script>
+<script src="data/components.js"></script>
+<script src="data/kicad-gen.js"></script>
+<script src="data/history.js"></script>
+<script src="data/reference.js"></script>
+<script src="data/achievements.js"></script>
+<script src="data/i18n.js"></script>
+<!-- Ядро -->
+<script src="js/core.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/api.js"></script>
+<!-- Разделы -->
+<script src="js/views/home.js"></script>
+<script src="js/views/lessons.js"></script>
+<script src="js/views/demos.js"></script>
+<script src="js/views/projects.js"></script>
+<script src="js/views/components.js"></script>
+<script src="js/views/templates.js"></script>
+<script src="js/sim.js"></script>
+<script src="js/views/sim.js"></script>
+<script src="js/views/history.js"></script>
+<script src="js/views/reference.js"></script>
+<script src="js/views/community.js"></script>
+<script src="js/views/profile.js"></script>
+<script src="js/views/settings.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

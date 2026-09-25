@@ -1,0 +1,9 @@
+# зависимости и данные сервера
+server/node_modules/
+server/data/
+# локальные файлы KiCad
+*.kicad_prl
+*-backups/
+fp-info-cache
+_autosave-*
+*.lck
